@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import type { LanguageCode, VersionId } from '@/lib/bible';
 import { Suspense } from 'react';
 
-function VerseDisplay({
+async function VerseDisplay({
   lang,
   ver,
   book,
@@ -17,8 +17,8 @@ function VerseDisplay({
   v?: string;
 }) {
   const verseText = v
-    ? getVerse(ver, book, chap, v)
-    : getChapterText(ver, book, chap);
+    ? await getVerse(ver, book, chap, v)
+    : await getChapterText(ver, book, chap);
 
   if (!verseText) {
     return (

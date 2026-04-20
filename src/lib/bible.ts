@@ -1,7 +1,3 @@
-import KJV from '@/data/bible/kjv.json';
-import ASV from '@/data/bible/asv.json';
-import TAGALOG from '@/data/bible/tagalog.json';
-import BISAYA from '@/data/bible/bisaya.json';
 import {
   BIBLE_VERSIONS,
   LANGUAGES,
@@ -14,25 +10,49 @@ type BibleChapter = { [chapter: string]: BibleVerse };
 type BibleBook = { [book: string]: BibleChapter };
 export type BibleData = BibleBook;
 
-// Statically import all local Bible versions
-const localBibleData: { [key: string]: BibleData } = {
-  KJV: KJV as BibleData,
-  ASV: ASV as BibleData,
-  'Ang Biblia': TAGALOG as BibleData,
-  Bisaya: BISAYA as BibleData,
-};
-
 export type LanguageCode = 'en' | 'tl' | 'ceb';
 export type VersionId = string;
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
-function getVersionData(versionId: VersionId): BibleData | null {
+// Map of version IDs to functions that dynamically import the data.
+const localBibleDataModules: {
+  [key: string]: () => Promise<{ default: BibleData }>;
+} = {
+  KJV: () => import('@/data/bible/kjv.json'),
+  ASV: () => import('@/data/bible/asv.json'),
+  'Ang Biblia': () => import('@/data/bible/tagalog.json'),
+  Bisaya: () => import('@/data/bible/bisaya.json'),
+  WEB: () => import('@/data/bible/web.json'),
+};
+
+// Cache for loaded bible data
+const bibleCache = new Map<VersionId, BibleData>();
+
+async function getVersionData(versionId: VersionId): Promise<BibleData | null> {
+  if (bibleCache.has(versionId)) {
+    return bibleCache.get(versionId)!;
+  }
+
   const versionInfo = BIBLE_VERSIONS.find(v => v.id === versionId);
   if (!versionInfo || versionInfo.type !== 'local') {
     return null; // For now, we only support local JSON files
   }
-  return localBibleData[versionId] || null;
+
+  const loader = localBibleDataModules[versionId];
+  if (!loader) {
+    return null;
+  }
+
+  try {
+    const module = await loader();
+    const data = module.default;
+    bibleCache.set(versionId, data);
+    return data;
+  } catch (error) {
+    console.error(`Failed to load Bible data for ${versionId}:`, error);
+    return null;
+  }
 }
 
 export function getAvailableLanguages(): Language[] {
@@ -46,32 +66,35 @@ export function getVersionsForLanguage(langCode: LanguageCode): BibleVersion[] {
   return BIBLE_VERSIONS.filter(v => v.language.code === langCode);
 }
 
-export function getBooks(versionId: VersionId): string[] {
-  const data = getVersionData(versionId);
+export async function getBooks(versionId: VersionId): Promise<string[]> {
+  const data = await getVersionData(versionId);
   return data ? Object.keys(data) : [];
 }
 
-export function getChapters(versionId: VersionId, book: string): string[] {
-  const data = getVersionData(versionId);
+export async function getChapters(
+  versionId: VersionId,
+  book: string
+): Promise<string[]> {
+  const data = await getVersionData(versionId);
   return data && data[book] ? Object.keys(data[book]) : [];
 }
 
-export function getChapterText(
+export async function getChapterText(
   versionId: VersionId,
   book: string,
   chapter: string
-): BibleVerse | null {
-  const data = getVersionData(versionId);
+): Promise<BibleVerse | null> {
+  const data = await getVersionData(versionId);
   return data?.[book]?.[chapter] || null;
 }
 
-export function getVerse(
+export async function getVerse(
   versionId: VersionId,
   book: string,
   chapter: string,
   verse: string
-): string | null {
-  const data = getVersionData(versionId);
+): Promise<string | null> {
+  const data = await getVersionData(versionId);
   return data?.[book]?.[chapter]?.[verse] || null;
 }
 
@@ -88,7 +111,7 @@ export async function search(
 ): Promise<SearchResult[]> {
   if (!query) return [];
 
-  const data = getVersionData(versionId);
+  const data = await getVersionData(versionId);
   if (!data) return [];
 
   const results: SearchResult[] = [];

@@ -1,5 +1,6 @@
 export type BibleVersion = {
   id: string; // e.g., 'KJV'
+  abbreviation: string; // e.g., 'KJV'
   name: string; // e.g., 'King James Version'
   language: Language;
   type: 'local' | 'api';
@@ -21,6 +22,7 @@ export const LANGUAGES: Language[] = [
 export const BIBLE_VERSIONS: BibleVersion[] = [
   {
     id: 'KJV',
+    abbreviation: 'KJV',
     name: 'King James Version',
     language: LANGUAGES[0],
     type: 'local',
@@ -29,6 +31,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
   },
   {
     id: 'ASV',
+    abbreviation: 'ASV',
     name: 'American Standard Version',
     language: LANGUAGES[0],
     type: 'local',
@@ -36,7 +39,17 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     copyright: 'Public Domain',
   },
   {
+    id: 'WEB',
+    abbreviation: 'WEB',
+    name: 'World English Bible',
+    language: LANGUAGES[0],
+    type: 'local',
+    source: '@/data/bible/web.json',
+    copyright: 'Public Domain',
+  },
+  {
     id: 'Ang Biblia',
+    abbreviation: 'TAG',
     name: 'Ang Biblia (1905)',
     language: LANGUAGES[1],
     type: 'local',
@@ -45,6 +58,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
   },
   {
     id: 'Bisaya',
+    abbreviation: 'CEB',
     name: 'Bugna, Bisaya',
     language: LANGUAGES[2],
     type: 'local',
@@ -53,6 +67,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
   },
   {
     id: 'NIV',
+    abbreviation: 'NIV',
     name: 'New International Version',
     language: LANGUAGES[0],
     type: 'api',

@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getBooks,
   getChapters,
@@ -10,6 +10,7 @@ import {
   getAvailableLanguages,
   type LanguageCode,
   type VersionId,
+  type BibleData,
 } from '@/lib/bible';
 
 export function useBibleNavigation() {
@@ -17,19 +18,67 @@ export function useBibleNavigation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Synchronous States
   const availableLanguages = useMemo(() => getAvailableLanguages(), []);
   const lang =
     (searchParams.get('lang') as LanguageCode) || availableLanguages[0].code;
-
   const availableVersions = useMemo(() => getVersionsForLanguage(lang), [lang]);
   const ver =
     (searchParams.get('ver') as VersionId) || availableVersions[0]?.id;
+  const book = searchParams.get('book');
+  const chap = searchParams.get('chap');
 
-  const availableBooks = useMemo(() => getBooks(ver), [ver]);
-  const book = searchParams.get('book') || availableBooks[0];
+  // Asynchronous States
+  const [availableBooks, setAvailableBooks] = useState<string[]>([]);
+  const [availableChapters, setAvailableChapters] = useState<string[]>([]);
+  const [currentChapterText, setCurrentChapterText] = useState<
+    BibleData[string][string] | null
+  >(null);
 
-  const availableChapters = useMemo(() => getChapters(ver, book), [ver, book]);
-  const chap = searchParams.get('chap') || availableChapters[0] || '1';
+  // Loading States
+  const [isLoadingBooks, setIsLoadingBooks] = useState(true);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(true);
+  const [isLoadingText, setIsLoadingText] = useState(true);
+
+  // Effects to fetch data when dependencies change
+  useEffect(() => {
+    if (!ver) return;
+    setIsLoadingBooks(true);
+    getBooks(ver)
+      .then(books => {
+        setAvailableBooks(books);
+        if (!book || !books.includes(book)) {
+          // If no book is selected or the current book isn't in the new version, select the first one.
+          // This will trigger the other useEffects.
+          setBook(books[0]);
+        }
+      })
+      .finally(() => setIsLoadingBooks(false));
+  }, [ver]);
+
+  useEffect(() => {
+    if (!ver || !book) return;
+    setIsLoadingChapters(true);
+    getChapters(ver, book)
+      .then(chapters => {
+        setAvailableChapters(chapters);
+        if (!chap || !chapters.includes(chap)) {
+          // If no chapter is selected or current chapter isn't in the new book, select the first one.
+          setChapter(chapters[0] || '1');
+        }
+      })
+      .finally(() => setIsLoadingChapters(false));
+  }, [ver, book]);
+
+  useEffect(() => {
+    if (!ver || !book || !chap) return;
+    setIsLoadingText(true);
+    getChapterText(ver, book, chap)
+      .then(text => {
+        setCurrentChapterText(text);
+      })
+      .finally(() => setIsLoadingText(false));
+  }, [ver, book, chap]);
 
   const createQueryString = useCallback(
     (params: Record<string, string | number | undefined>) => {
@@ -46,75 +95,45 @@ export function useBibleNavigation() {
     [searchParams]
   );
 
+  const navigate = (params: Record<string, string | number | undefined>) => {
+    router.push(pathname + '?' + createQueryString(params));
+  };
+
   const setLanguage = (newLang: LanguageCode) => {
     const newVersions = getVersionsForLanguage(newLang);
     const newVersionId = newVersions[0]?.id;
     if (!newVersionId) return;
-    const newBooks = getBooks(newVersionId);
-    const newBook = newBooks[0];
-    router.push(
-      pathname +
-        '?' +
-        createQueryString({
-          lang: newLang,
-          ver: newVersionId,
-          book: newBook,
-          chap: '1',
-        })
-    );
+    // Let the useEffects handle the book/chapter reset
+    navigate({
+      lang: newLang,
+      ver: newVersionId,
+      book: undefined,
+      chap: undefined,
+    });
   };
 
   const setVersion = (newVer: VersionId) => {
-    const newBooks = getBooks(newVer);
-    const newBook = newBooks[0];
-    router.push(
-      pathname +
-        '?' +
-        createQueryString({
-          ver: newVer,
-          book: newBook,
-          chap: '1',
-        })
-    );
+    // Let the useEffects handle the book/chapter reset
+    navigate({ ver: newVer, book: undefined, chap: undefined });
   };
 
   const setBook = (newBook: string) => {
-    const newChapters = getChapters(ver, newBook);
-    router.push(
-      pathname +
-        '?' +
-        createQueryString({
-          book: newBook,
-          chap: newChapters[0] || '1',
-        })
-    );
+    navigate({ book: newBook, chap: undefined });
   };
 
   const setChapter = (newChap: string) => {
-    router.push(pathname + '?' + createQueryString({ chap: newChap }));
+    navigate({ chap: newChap });
   };
 
   const goTo = (location: { book: string; chapter: string }) => {
-    router.push(
-      pathname +
-        '?' +
-        createQueryString({
-          book: location.book,
-          chap: location.chapter,
-        })
-    );
+    navigate({ book: location.book, chap: location.chapter });
   };
-
-  const currentChapterText = useMemo(
-    () => getChapterText(ver, book, chap),
-    [ver, book, chap]
-  );
 
   return {
     lang,
     ver,
-    book,
-    chap,
+    book: book || availableBooks[0] || '',
+    chap: chap || availableChapters[0] || '1',
     setLanguage,
     setVersion,
     setBook,
@@ -126,5 +145,6 @@ export function useBibleNavigation() {
     availableChapters,
     currentChapterText,
     createQueryString,
+    isLoading: isLoadingBooks || isLoadingChapters || isLoadingText,
   };
 }

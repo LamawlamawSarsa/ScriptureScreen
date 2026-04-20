@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from './ui/scroll-area';
+import { Skeleton } from './ui/skeleton';
 
 export function BibleReader() {
   const {
@@ -46,6 +47,7 @@ export function BibleReader() {
     availableChapters,
     currentChapterText,
     createQueryString,
+    isLoading,
   } = useBibleNavigation();
 
   const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export function BibleReader() {
           <Select
             value={lang}
             onValueChange={setLanguage as (value: string) => void}
+            disabled={isLoading}
           >
             <SelectTrigger>
               <SelectValue placeholder="Language" />
@@ -140,6 +143,7 @@ export function BibleReader() {
           <Select
             value={ver}
             onValueChange={setVersion as (value: string) => void}
+            disabled={isLoading}
           >
             <SelectTrigger>
               <SelectValue placeholder="Version" />
@@ -147,13 +151,13 @@ export function BibleReader() {
             <SelectContent>
               {availableVersions.map(v => (
                 <SelectItem key={v.id} value={v.id}>
-                  {v.name}
+                  {v.name} ({v.abbreviation})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={book} onValueChange={setBook}>
+          <Select value={book} onValueChange={setBook} disabled={isLoading}>
             <SelectTrigger>
               <SelectValue placeholder="Book" />
             </SelectTrigger>
@@ -168,7 +172,7 @@ export function BibleReader() {
             </SelectContent>
           </Select>
 
-          <Select value={chap} onValueChange={setChapter}>
+          <Select value={chap} onValueChange={setChapter} disabled={isLoading}>
             <SelectTrigger>
               <SelectValue placeholder="Chapter" />
             </SelectTrigger>
@@ -245,26 +249,36 @@ export function BibleReader() {
               variant="outline"
               size="icon"
               onClick={() => handleChapterChange(-1)}
-              disabled={availableChapters.indexOf(chap) === 0}
+              disabled={isLoading || availableChapters.indexOf(chap) === 0}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-center font-headline text-3xl font-bold text-primary sm:text-4xl">
-              {book} {chap}
+              {isLoading ? <Skeleton className="h-8 w-48" /> : `${book} ${chap}`}
             </h2>
             <Button
               variant="outline"
               size="icon"
               onClick={() => handleChapterChange(1)}
               disabled={
+                isLoading ||
                 availableChapters.indexOf(chap) ===
-                availableChapters.length - 1
+                  availableChapters.length - 1
               }
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          {currentChapterText ? (
+          {isLoading ? (
+            <div className="space-y-6">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-5/6" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-6 w-full" />
+            </div>
+          ) : currentChapterText ? (
             <div className="space-y-4 font-headline text-lg/relaxed tracking-wide sm:text-xl/relaxed">
               {sortedChapterText.map(([verseNum, text]) => (
                 <p
