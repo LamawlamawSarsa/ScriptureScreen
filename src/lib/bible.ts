@@ -130,3 +130,87 @@ export async function search(
 
   return results;
 }
+
+export async function validateVersion(versionId: VersionId) {
+  const data = await getVersionData(versionId);
+  if (!data) {
+    return {
+      versionId,
+      error: 'Could not load data for this version.',
+      checks: {},
+    };
+  }
+
+  const bookCount = Object.keys(data).length;
+  const genesisChapterCount = data['Genesis']
+    ? Object.keys(data['Genesis']).length
+    : 0;
+  const psalmsChapterCount = data['Psalms']
+    ? Object.keys(data['Psalms']).length
+    : 0;
+  const revelationChapterCount = data['Revelation']
+    ? Object.keys(data['Revelation']).length
+    : 0;
+  const hasGenesis1_1 = !!data?.['Genesis']?.['1']?.['1'];
+  const hasRevelation22_21 = !!data?.['Revelation']?.['22']?.['21'];
+
+  let totalVerseCount = 0;
+  for (const book in data) {
+    for (const chapter in data[book]) {
+      totalVerseCount += Object.keys(data[book][chapter]).length;
+    }
+  }
+
+  const checks = {
+    bookCount: {
+      description: 'Total number of books should be 66.',
+      expected: 66,
+      actual: bookCount,
+      pass: bookCount === 66,
+    },
+    genesisChapters: {
+      description: 'Genesis should have 50 chapters.',
+      expected: 50,
+      actual: genesisChapterCount,
+      pass: genesisChapterCount === 50,
+    },
+    psalmsChapters: {
+      description: 'Psalms should have 150 chapters.',
+      expected: 150,
+      actual: psalmsChapterCount,
+      pass: psalmsChapterCount === 150,
+    },
+    revelationChapters: {
+      description: 'Revelation should have 22 chapters.',
+      expected: 22,
+      actual: revelationChapterCount,
+      pass: revelationChapterCount === 22,
+    },
+    hasFirstVerse: {
+      description: 'Must contain Genesis 1:1.',
+      expected: true,
+      actual: hasGenesis1_1,
+      pass: hasGenesis1_1,
+    },
+    hasLastVerse: {
+      description: 'Must contain Revelation 22:21.',
+      expected: true,
+      actual: hasRevelation22_21,
+      pass: hasRevelation22_21,
+    },
+    totalVerseCount: {
+      description: 'Total verse count must be over 30,000 for KJV.',
+      expected: '~31,102',
+      actual: totalVerseCount,
+      pass: totalVerseCount > 30000,
+    },
+  };
+
+  const overallPass = Object.values(checks).every(check => check.pass);
+
+  return {
+    versionId,
+    overallPass,
+    checks,
+  };
+}
