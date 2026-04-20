@@ -1,6 +1,6 @@
 import { getChapterText, getVerse } from '@/lib/bible';
 import { cn } from '@/lib/utils';
-import type { LanguageCode, VersionName } from '@/lib/bible';
+import type { LanguageCode, VersionId } from '@/lib/bible';
 import { Suspense } from 'react';
 
 function VerseDisplay({
@@ -11,14 +11,14 @@ function VerseDisplay({
   v,
 }: {
   lang: LanguageCode;
-  ver: VersionName;
+  ver: VersionId;
   book: string;
   chap: string;
   v?: string;
 }) {
   const verseText = v
-    ? getVerse(lang, ver, book, chap, v)
-    : getChapterText(lang, ver, book, chap);
+    ? getVerse(ver, book, chap, v)
+    : getChapterText(ver, book, chap);
 
   if (!verseText) {
     return (
@@ -61,7 +61,7 @@ export default function PresentationPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const lang = (searchParams.lang as LanguageCode) || 'en';
-  const ver = (searchParams.ver as VersionName) || 'KJV';
+  const ver = (searchParams.ver as VersionId) || 'KJV';
   const book = (searchParams.book as string) || 'John';
   const chap = (searchParams.chap as string) || '3';
   const v = searchParams.v as string | undefined;

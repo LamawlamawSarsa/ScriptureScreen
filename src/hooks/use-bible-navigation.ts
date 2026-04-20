@@ -3,14 +3,13 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import {
-  bibleData,
   getBooks,
   getChapters,
   getChapterText,
   getVersionsForLanguage,
-  BIBLE_LANGUAGES,
+  getAvailableLanguages,
   type LanguageCode,
-  type VersionName,
+  type VersionId,
 } from '@/lib/bible';
 
 export function useBibleNavigation() {
@@ -18,12 +17,19 @@ export function useBibleNavigation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const lang = (searchParams.get('lang') as LanguageCode) || 'en';
+  const availableLanguages = useMemo(() => getAvailableLanguages(), []);
+  const lang =
+    (searchParams.get('lang') as LanguageCode) || availableLanguages[0].code;
+
+  const availableVersions = useMemo(() => getVersionsForLanguage(lang), [lang]);
   const ver =
-    (searchParams.get('ver') as VersionName) ||
-    getVersionsForLanguage(lang)[0];
-  const book = searchParams.get('book') || getBooks(lang, ver)[0];
-  const chap = searchParams.get('chap') || '1';
+    (searchParams.get('ver') as VersionId) || availableVersions[0]?.id;
+
+  const availableBooks = useMemo(() => getBooks(ver), [ver]);
+  const book = searchParams.get('book') || availableBooks[0];
+
+  const availableChapters = useMemo(() => getChapters(ver, book), [ver, book]);
+  const chap = searchParams.get('chap') || availableChapters[0] || '1';
 
   const createQueryString = useCallback(
     (params: Record<string, string | number | undefined>) => {
@@ -42,23 +48,24 @@ export function useBibleNavigation() {
 
   const setLanguage = (newLang: LanguageCode) => {
     const newVersions = getVersionsForLanguage(newLang);
-    const newVersion = newVersions[0];
-    const newBooks = getBooks(newLang, newVersion);
+    const newVersionId = newVersions[0]?.id;
+    if (!newVersionId) return;
+    const newBooks = getBooks(newVersionId);
     const newBook = newBooks[0];
     router.push(
       pathname +
         '?' +
         createQueryString({
           lang: newLang,
-          ver: newVersion,
+          ver: newVersionId,
           book: newBook,
           chap: '1',
         })
     );
   };
 
-  const setVersion = (newVer: VersionName) => {
-    const newBooks = getBooks(lang, newVer);
+  const setVersion = (newVer: VersionId) => {
+    const newBooks = getBooks(newVer);
     const newBook = newBooks[0];
     router.push(
       pathname +
@@ -72,12 +79,13 @@ export function useBibleNavigation() {
   };
 
   const setBook = (newBook: string) => {
+    const newChapters = getChapters(ver, newBook);
     router.push(
       pathname +
         '?' +
         createQueryString({
           book: newBook,
-          chap: '1',
+          chap: newChapters[0] || '1',
         })
     );
   };
@@ -85,9 +93,9 @@ export function useBibleNavigation() {
   const setChapter = (newChap: string) => {
     router.push(pathname + '?' + createQueryString({ chap: newChap }));
   };
-  
-  const goTo = (location: {book: string, chapter: string}) => {
-     router.push(
+
+  const goTo = (location: { book: string; chapter: string }) => {
+    router.push(
       pathname +
         '?' +
         createQueryString({
@@ -95,22 +103,11 @@ export function useBibleNavigation() {
           chap: location.chapter,
         })
     );
-  }
-
-  const availableLanguages = BIBLE_LANGUAGES;
-  const availableVersions = useMemo(
-    () => getVersionsForLanguage(lang),
-    [lang]
-  );
-  const availableBooks = useMemo(() => getBooks(lang, ver), [lang, ver]);
-  const availableChapters = useMemo(
-    () => getChapters(lang, ver, book),
-    [lang, ver, book]
-  );
+  };
 
   const currentChapterText = useMemo(
-    () => getChapterText(lang, ver, book, chap),
-    [lang, ver, book, chap]
+    () => getChapterText(ver, book, chap),
+    [ver, book, chap]
   );
 
   return {

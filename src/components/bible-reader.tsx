@@ -56,7 +56,7 @@ export function BibleReader() {
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.length > 2) {
-      const results = await search(lang, ver, query);
+      const results = await search(ver, query);
       setSearchResults(results);
       setIsSearchOpen(true);
     } else {
@@ -121,12 +121,15 @@ export function BibleReader() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:flex lg:items-center lg:gap-4">
-          <Select value={lang} onValueChange={setLanguage}>
+          <Select
+            value={lang}
+            onValueChange={setLanguage as (value: string) => void}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Language" />
             </SelectTrigger>
             <SelectContent>
-              {availableLanguages.map((l) => (
+              {availableLanguages.map(l => (
                 <SelectItem key={l.code} value={l.code}>
                   {l.name}
                 </SelectItem>
@@ -134,14 +137,17 @@ export function BibleReader() {
             </SelectContent>
           </Select>
 
-          <Select value={ver} onValueChange={setVersion}>
+          <Select
+            value={ver}
+            onValueChange={setVersion as (value: string) => void}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Version" />
             </SelectTrigger>
             <SelectContent>
-              {availableVersions.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v}
+              {availableVersions.map(v => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -153,7 +159,7 @@ export function BibleReader() {
             </SelectTrigger>
             <SelectContent>
               <ScrollArea className="h-72">
-                {availableBooks.map((b) => (
+                {availableBooks.map(b => (
                   <SelectItem key={b} value={b}>
                     {b}
                   </SelectItem>
@@ -168,7 +174,7 @@ export function BibleReader() {
             </SelectTrigger>
             <SelectContent>
               <ScrollArea className="h-72">
-                {availableChapters.map((c) => (
+                {availableChapters.map(c => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -176,7 +182,7 @@ export function BibleReader() {
               </ScrollArea>
             </SelectContent>
           </Select>
-          
+
           <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
             <PopoverTrigger asChild>
               <div className="relative lg:flex-1">
@@ -186,11 +192,14 @@ export function BibleReader() {
                   placeholder="Search keyword..."
                   className="pl-9"
                   value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
+                  onChange={e => handleSearch(e.target.value)}
                 />
               </div>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] p-0"
+              align="start"
+            >
               <ScrollArea className="max-h-80">
                 {searchResults.length > 0 ? (
                   <div className="p-2">
@@ -200,14 +209,27 @@ export function BibleReader() {
                         onClick={() => handleResultClick(result)}
                         className="w-full text-left p-2 rounded-md hover:bg-accent"
                       >
-                        <p className="font-semibold text-primary">{result.book} {result.chapter}:{result.verse}</p>
-                        <p className="text-sm text-muted-foreground truncate" dangerouslySetInnerHTML={{ __html: result.text.replace(new RegExp(searchQuery, "gi"), (match) => `<strong class="text-accent-foreground bg-accent/50">${match}</strong>`) }}></p>
+                        <p className="font-semibold text-primary">
+                          {result.book} {result.chapter}:{result.verse}
+                        </p>
+                        <p
+                          className="text-sm text-muted-foreground truncate"
+                          dangerouslySetInnerHTML={{
+                            __html: result.text.replace(
+                              new RegExp(searchQuery, 'gi'),
+                              match =>
+                                `<strong class="text-accent-foreground bg-accent/50">${match}</strong>`
+                            ),
+                          }}
+                        ></p>
                       </button>
                     ))}
                   </div>
                 ) : (
                   <p className="p-4 text-center text-sm text-muted-foreground">
-                    {searchQuery.length > 2 ? 'No results found.' : 'Type to search.'}
+                    {searchQuery.length > 2
+                      ? 'No results found.'
+                      : 'Type to search.'}
                   </p>
                 )}
               </ScrollArea>
@@ -235,7 +257,8 @@ export function BibleReader() {
               size="icon"
               onClick={() => handleChapterChange(1)}
               disabled={
-                availableChapters.indexOf(chap) === availableChapters.length - 1
+                availableChapters.indexOf(chap) ===
+                availableChapters.length - 1
               }
             >
               <ChevronRight className="h-4 w-4" />
@@ -248,7 +271,9 @@ export function BibleReader() {
                   key={verseNum}
                   id={`verse-${verseNum}`}
                   onClick={() =>
-                    setSelectedVerse(verseNum === selectedVerse ? null : verseNum)
+                    setSelectedVerse(
+                      verseNum === selectedVerse ? null : verseNum
+                    )
                   }
                   className={`cursor-pointer rounded-md p-2 transition-colors ${
                     selectedVerse === verseNum
