@@ -53,10 +53,10 @@ export function BibleReader() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.length > 2) {
-      const results = search(lang, ver, query);
+      const results = await search(lang, ver, query);
       setSearchResults(results);
       setIsSearchOpen(true);
     } else {

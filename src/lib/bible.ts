@@ -1,4 +1,3 @@
-'use server';
 
 import KJV from '@/data/bible/kjv.json';
 import TAGALOG from '@/data/bible/tagalog.json';
@@ -76,11 +75,11 @@ export type SearchResult = {
   text: string;
 };
 
-export function search(
+export async function search(
   lang: LanguageCode,
   version: VersionName,
   query: string
-): SearchResult[] {
+): Promise<SearchResult[]> {
   if (!query) return [];
 
   const data = bibleData[lang]?.[version as any];
