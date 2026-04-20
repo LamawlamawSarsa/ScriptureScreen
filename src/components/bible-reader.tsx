@@ -113,7 +113,7 @@ export function BibleReader() {
           <Logo />
           <div className="flex items-center gap-2">
             <ContextualVerseFinder />
-            <Button onClick={openPresentation} disabled={!selectedVerse}>
+            <Button onClick={openPresentation} disabled={!currentChapterText}>
               <MonitorPlay className="mr-2 h-4 w-4" />
               Present
             </Button>
