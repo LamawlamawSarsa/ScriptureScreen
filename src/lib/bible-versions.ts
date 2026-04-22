@@ -28,7 +28,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     language: LANGUAGES[0],
     type: 'online-json',
     source:
-      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/kjv.json',
+      'https://raw.githubusercontent.com/Bible-api/Bible-api/master/bibles/en/kjv.json',
     format: 'nested-array',
     copyright: 'Public Domain',
   },
@@ -39,7 +39,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     language: LANGUAGES[0],
     type: 'online-json',
     source:
-      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/asv.json',
+      'https://raw.githubusercontent.com/Bible-api/Bible-api/master/bibles/en/asv.json',
     format: 'nested-array',
     copyright: 'Public Domain',
   },
@@ -50,7 +50,7 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     language: LANGUAGES[0],
     type: 'online-json',
     source:
-      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/web.json',
+      'https://raw.githubusercontent.com/Bible-api/Bible-api/master/bibles/en/web.json',
     format: 'nested-array',
     copyright: 'Public Domain',
   },
