@@ -54,38 +54,45 @@ export function useBibleNavigation() {
     },
     [searchParams]
   );
-
-  const navigate = useCallback((params: Record<string, string | number | undefined>) => {
-    router.push(pathname + '?' + createQueryString(params));
-  }, [router, pathname, createQueryString]);
-
+  
   const setLanguage = useCallback((newLang: LanguageCode) => {
     const newVersions = getVersionsForLanguage(newLang);
     const newVersionId = newVersions[0]?.id;
     if (!newVersionId) return;
-    navigate({
-      lang: newLang,
-      ver: newVersionId,
-      book: undefined,
-      chap: undefined,
-    });
-  }, [navigate]);
+    const params = new URLSearchParams();
+    params.set('lang', newLang);
+    params.set('ver', newVersionId);
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
 
   const setVersion = useCallback((newVer: VersionId) => {
-    navigate({ ver: newVer, book: undefined, chap: undefined });
-  }, [navigate]);
+    const params = new URLSearchParams(window.location.search);
+    params.set('ver', newVer);
+    params.delete('book');
+    params.delete('chap');
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
 
   const setBook = useCallback((newBook: string) => {
-    navigate({ book: newBook, chap: undefined });
-  }, [navigate]);
+    const params = new URLSearchParams(window.location.search);
+    params.set('book', newBook);
+    params.delete('chap');
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
 
   const setChapter = useCallback((newChap: string) => {
-    navigate({ chap: newChap });
-  }, [navigate]);
+    const params = new URLSearchParams(window.location.search);
+    params.set('chap', newChap);
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
 
   const goTo = useCallback((location: { book: string; chapter: string }) => {
-    navigate({ book: location.book, chap: location.chapter });
-  }, [navigate]);
+    const params = new URLSearchParams(window.location.search);
+    params.set('book', location.book);
+    params.set('chap', location.chapter);
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
+
 
   // Effect to fetch books when version changes
   useEffect(() => {
@@ -152,8 +159,8 @@ export function useBibleNavigation() {
   return {
     lang,
     ver,
-    book: book || availableBooks[0] || '',
-    chap: chap || availableChapters[0] || '1',
+    book: book || '',
+    chap: chap || '',
     setLanguage,
     setVersion,
     setBook,
