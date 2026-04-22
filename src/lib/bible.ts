@@ -15,19 +15,51 @@ export type VersionId = string;
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
-// Map of version IDs to functions that dynamically import the data.
-const localBibleDataModules: {
-  [key: string]: () => Promise<{ default: BibleData }>;
-} = {
-  KJV: () => import('@/data/bible/kjv.json'),
-  ASV: () => import('@/data/bible/asv.json'),
-  'Ang Biblia': () => import('@/data/bible/tagalog.json'),
-  Bisaya: () => import('@/data/bible/bisaya.json'),
-  WEB: () => import('@/data/bible/web.json'),
-};
-
 // Cache for loaded bible data
 const bibleCache = new Map<VersionId, BibleData>();
+
+// --- Transformation Functions ---
+
+function transformNestedArray(sourceData: any[]): BibleData {
+  const data: BibleData = {};
+  for (const book of sourceData) {
+    const bookName = book.name;
+    if (!bookName || !book.chapters) continue;
+    data[bookName] = {};
+    book.chapters.forEach((chapterVerses: string[], chapterIndex: number) => {
+      const chapterNum = chapterIndex + 1;
+      data[bookName][chapterNum] = {};
+      chapterVerses.forEach((verseText: string, verseIndex: number) => {
+        const verseNum = verseIndex + 1;
+        data[bookName][chapterNum][verseNum] = verseText;
+      });
+    });
+  }
+  return data;
+}
+
+function transformFlatObjectArray(sourceData: any[]): BibleData {
+  const data: BibleData = {};
+  for (const item of sourceData) {
+    const bookName = item.book_name || item.book;
+    const chapterNum = item.chapter;
+    const verseNum = item.verse;
+    const text = item.text;
+
+    if (!bookName || !chapterNum || !verseNum || text === undefined) continue;
+
+    if (!data[bookName]) {
+      data[bookName] = {};
+    }
+    if (!data[bookName][chapterNum]) {
+      data[bookName][chapterNum] = {};
+    }
+    data[bookName][chapterNum][verseNum] = text;
+  }
+  return data;
+}
+
+// --- Data Fetching ---
 
 async function getVersionData(versionId: VersionId): Promise<BibleData | null> {
   if (bibleCache.has(versionId)) {
@@ -35,22 +67,50 @@ async function getVersionData(versionId: VersionId): Promise<BibleData | null> {
   }
 
   const versionInfo = BIBLE_VERSIONS.find(v => v.id === versionId);
-  if (!versionInfo || versionInfo.type !== 'local') {
-    return null; // For now, we only support local JSON files
-  }
-
-  const loader = localBibleDataModules[versionId];
-  if (!loader) {
+  if (!versionInfo || versionInfo.type !== 'online-json') {
+    console.error(
+      `Version ${versionId} not found or is not of type 'online-json'.`
+    );
     return null;
   }
 
   try {
-    const module = await loader();
-    const data = module.default;
+    console.log(
+      `Fetching Bible data for ${versionId} from ${versionInfo.source}`
+    );
+    const response = await fetch(versionInfo.source, {
+      next: { revalidate: 3600 * 24 }, // Revalidate once a day
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch Bible data for ${versionId}: ${response.statusText}`
+      );
+    }
+
+    const sourceData = await response.json();
+    let data: BibleData;
+
+    if (versionInfo.format === 'nested-array') {
+      data = transformNestedArray(sourceData);
+    } else if (versionInfo.format === 'flat-object-array') {
+      data = transformFlatObjectArray(sourceData);
+    } else {
+      throw new Error(
+        `Unknown format for version ${versionId}: ${versionInfo.format}`
+      );
+    }
+
     bibleCache.set(versionId, data);
+    console.log(
+      `Successfully loaded and transformed Bible data for ${versionId}.`
+    );
     return data;
   } catch (error) {
-    console.error(`Failed to load Bible data for ${versionId}:`, error);
+    console.error(
+      `Failed to load or process Bible data for ${versionId}:`,
+      error
+    );
     return null;
   }
 }
@@ -76,7 +136,10 @@ export async function getChapters(
   book: string
 ): Promise<string[]> {
   const data = await getVersionData(versionId);
-  return data && data[book] ? Object.keys(data[book]) : [];
+  // Sort chapters numerically
+  return data && data[book]
+    ? Object.keys(data[book]).sort((a, b) => parseInt(a) - parseInt(b))
+    : [];
 }
 
 export async function getChapterText(
@@ -132,6 +195,7 @@ export async function search(
 }
 
 export async function validateVersion(versionId: VersionId) {
+  console.log(`Starting validation for ${versionId}...`);
   const data = await getVersionData(versionId);
   if (!data) {
     return {
@@ -140,6 +204,7 @@ export async function validateVersion(versionId: VersionId) {
       checks: {},
     };
   }
+  console.log(`Data for ${versionId} loaded, performing checks.`);
 
   const bookCount = Object.keys(data).length;
   const genesisChapterCount = data['Genesis']
@@ -205,12 +270,18 @@ export async function validateVersion(versionId: VersionId) {
       pass: totalVerseCount > 30000,
     },
   };
+  console.log(
+    `Validation checks for ${versionId} complete. Overall pass: ${Object.values(
+      checks
+    ).every(check => check.pass)}`
+  );
 
   const overallPass = Object.values(checks).every(check => check.pass);
 
   return {
     versionId,
     overallPass,
+    totalVerseCount,
     checks,
   };
 }

@@ -1,10 +1,11 @@
 export type BibleVersion = {
-  id: string; // e.g., 'KJV'
-  abbreviation: string; // e.g., 'KJV'
-  name: string; // e.g., 'King James Version'
+  id: string;
+  abbreviation: string;
+  name: string;
   language: Language;
-  type: 'local' | 'api';
-  source: string; // path for 'local', URL for 'api'
+  type: 'online-json';
+  source: string; // URL to the JSON file
+  format: 'nested-array' | 'flat-object-array';
   copyright?: string;
 };
 
@@ -25,8 +26,10 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     abbreviation: 'KJV',
     name: 'King James Version',
     language: LANGUAGES[0],
-    type: 'local',
-    source: '@/data/bible/kjv.json',
+    type: 'online-json',
+    source:
+      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/kjv.json',
+    format: 'nested-array',
     copyright: 'Public Domain',
   },
   {
@@ -34,8 +37,10 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     abbreviation: 'ASV',
     name: 'American Standard Version',
     language: LANGUAGES[0],
-    type: 'local',
-    source: '@/data/bible/asv.json',
+    type: 'online-json',
+    source:
+      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/asv.json',
+    format: 'nested-array',
     copyright: 'Public Domain',
   },
   {
@@ -43,8 +48,10 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     abbreviation: 'WEB',
     name: 'World English Bible',
     language: LANGUAGES[0],
-    type: 'local',
-    source: '@/data/bible/web.json',
+    type: 'online-json',
+    source:
+      'https://raw.githubusercontent.com/seven-io/bible-api/main/bibles/en/web.json',
+    format: 'nested-array',
     copyright: 'Public Domain',
   },
   {
@@ -52,8 +59,10 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     abbreviation: 'TAG',
     name: 'Ang Biblia (1905)',
     language: LANGUAGES[1],
-    type: 'local',
-    source: '@/data/bible/tagalog.json',
+    type: 'online-json',
+    source:
+      'https://raw.githubusercontent.com/rivermont/filipino-bibles/master/json/AngBiblia.json',
+    format: 'flat-object-array',
     copyright: 'Public Domain',
   },
   {
@@ -61,17 +70,10 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     abbreviation: 'CEB',
     name: 'Bugna, Bisaya',
     language: LANGUAGES[2],
-    type: 'local',
-    source: '@/data/bible/bisaya.json',
+    type: 'online-json',
+    source:
+      'https://raw.githubusercontent.com/rivermont/cebuano-bibles/master/json/Bugna.json',
+    format: 'flat-object-array',
     copyright: 'Public Domain',
-  },
-  {
-    id: 'NIV',
-    abbreviation: 'NIV',
-    name: 'New International Version',
-    language: LANGUAGES[0],
-    type: 'api',
-    source: 'https://api.biblesupersearch.com/', // Example API
-    copyright: 'Copyright © 1973, 1978, 1984, 2011 by Biblica',
   },
 ];

@@ -5,10 +5,15 @@ export async function GET() {
   // We'll test the KJV version as an example
   const validationResult = await validateVersion('KJV');
 
+  const { overallPass, totalVerseCount, checks } = validationResult;
+
   const response = {
     message:
-      'This endpoint validates the completeness of a given Bible version. The current dataset is a sample. To pass all checks, the corresponding JSON file (e.g., src/data/bible/kjv.json) must contain the complete Bible text.',
-    ...validationResult,
+      'This endpoint validates the completeness of a given Bible version by fetching it from its online source and running a series of checks. A full, valid Bible will pass all checks.',
+    versionId: validationResult.versionId,
+    overallPass,
+    totalVerseCount,
+    checks,
   };
 
   // We return a 200 OK status regardless of validation pass/fail,
