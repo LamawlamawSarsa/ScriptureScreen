@@ -40,46 +40,6 @@ export function useBibleNavigation() {
   const [isLoadingChapters, setIsLoadingChapters] = useState(true);
   const [isLoadingText, setIsLoadingText] = useState(true);
 
-  // Effects to fetch data when dependencies change
-  useEffect(() => {
-    if (!ver) return;
-    setIsLoadingBooks(true);
-    getBooks(ver)
-      .then(books => {
-        setAvailableBooks(books);
-        if (!book || !books.includes(book)) {
-          // If no book is selected or the current book isn't in the new version, select the first one.
-          // This will trigger the other useEffects.
-          setBook(books[0]);
-        }
-      })
-      .finally(() => setIsLoadingBooks(false));
-  }, [ver]);
-
-  useEffect(() => {
-    if (!ver || !book) return;
-    setIsLoadingChapters(true);
-    getChapters(ver, book)
-      .then(chapters => {
-        setAvailableChapters(chapters);
-        if (!chap || !chapters.includes(chap)) {
-          // If no chapter is selected or current chapter isn't in the new book, select the first one.
-          setChapter(chapters[0] || '1');
-        }
-      })
-      .finally(() => setIsLoadingChapters(false));
-  }, [ver, book]);
-
-  useEffect(() => {
-    if (!ver || !book || !chap) return;
-    setIsLoadingText(true);
-    getChapterText(ver, book, chap)
-      .then(text => {
-        setCurrentChapterText(text);
-      })
-      .finally(() => setIsLoadingText(false));
-  }, [ver, book, chap]);
-
   const createQueryString = useCallback(
     (params: Record<string, string | number | undefined>) => {
       const newSearchParams = new URLSearchParams(searchParams.toString());
@@ -95,39 +55,99 @@ export function useBibleNavigation() {
     [searchParams]
   );
 
-  const navigate = (params: Record<string, string | number | undefined>) => {
+  const navigate = useCallback((params: Record<string, string | number | undefined>) => {
     router.push(pathname + '?' + createQueryString(params));
-  };
+  }, [router, pathname, createQueryString]);
 
-  const setLanguage = (newLang: LanguageCode) => {
+  const setLanguage = useCallback((newLang: LanguageCode) => {
     const newVersions = getVersionsForLanguage(newLang);
     const newVersionId = newVersions[0]?.id;
     if (!newVersionId) return;
-    // Let the useEffects handle the book/chapter reset
     navigate({
       lang: newLang,
       ver: newVersionId,
       book: undefined,
       chap: undefined,
     });
-  };
+  }, [navigate]);
 
-  const setVersion = (newVer: VersionId) => {
-    // Let the useEffects handle the book/chapter reset
+  const setVersion = useCallback((newVer: VersionId) => {
     navigate({ ver: newVer, book: undefined, chap: undefined });
-  };
+  }, [navigate]);
 
-  const setBook = (newBook: string) => {
+  const setBook = useCallback((newBook: string) => {
     navigate({ book: newBook, chap: undefined });
-  };
+  }, [navigate]);
 
-  const setChapter = (newChap: string) => {
+  const setChapter = useCallback((newChap: string) => {
     navigate({ chap: newChap });
-  };
+  }, [navigate]);
 
-  const goTo = (location: { book: string; chapter: string }) => {
+  const goTo = useCallback((location: { book: string; chapter: string }) => {
     navigate({ book: location.book, chap: location.chapter });
-  };
+  }, [navigate]);
+
+  // Effect to fetch books when version changes
+  useEffect(() => {
+    if (!ver) return;
+    let isMounted = true;
+    setIsLoadingBooks(true);
+    getBooks(ver)
+      .then(books => {
+        if (isMounted) setAvailableBooks(books);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingBooks(false);
+      });
+    return () => { isMounted = false; };
+  }, [ver]);
+
+  // Effect to set book if current one is invalid
+  useEffect(() => {
+    if (availableBooks.length > 0 && (!book || !availableBooks.includes(book))) {
+      setBook(availableBooks[0]);
+    }
+  }, [availableBooks, book, setBook]);
+
+  // Effect to fetch chapters when book/version changes
+  useEffect(() => {
+    if (!ver || !book) return;
+    let isMounted = true;
+    setIsLoadingChapters(true);
+    getChapters(ver, book)
+      .then(chapters => {
+        if (isMounted) setAvailableChapters(chapters);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingChapters(false);
+      });
+    return () => { isMounted = false; };
+  }, [ver, book]);
+
+  // Effect to set chapter if current one is invalid
+  useEffect(() => {
+    if (availableChapters.length > 0 && (!chap || !availableChapters.includes(chap))) {
+      setChapter(availableChapters[0] || '1');
+    }
+  }, [availableChapters, chap, setChapter]);
+
+  // Effect to fetch chapter text
+  useEffect(() => {
+    if (!ver || !book || !chap) {
+        setCurrentChapterText(null);
+        return;
+    };
+    let isMounted = true;
+    setIsLoadingText(true);
+    getChapterText(ver, book, chap)
+      .then(text => {
+        if (isMounted) setCurrentChapterText(text);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingText(false);
+      });
+    return () => { isMounted = false; };
+  }, [ver, book, chap]);
 
   return {
     lang,
