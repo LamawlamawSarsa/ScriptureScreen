@@ -96,7 +96,11 @@ export function useBibleNavigation() {
 
   // Effect to fetch books when version changes
   useEffect(() => {
-    if (!ver) return;
+    if (!ver) {
+      setAvailableBooks([]);
+      setIsLoadingBooks(false);
+      return;
+    }
     let isMounted = true;
     setIsLoadingBooks(true);
     getBooks(ver)
@@ -111,14 +115,19 @@ export function useBibleNavigation() {
 
   // Effect to set book if current one is invalid
   useEffect(() => {
+    if (isLoadingBooks) return; // Wait for books to load
     if (availableBooks.length > 0 && (!book || !availableBooks.includes(book))) {
       setBook(availableBooks[0]);
     }
-  }, [availableBooks, book, setBook]);
+  }, [availableBooks, book, setBook, isLoadingBooks]);
 
   // Effect to fetch chapters when book/version changes
   useEffect(() => {
-    if (!ver || !book) return;
+    if (!ver || !book) {
+      setAvailableChapters([]);
+      setIsLoadingChapters(false);
+      return;
+    }
     let isMounted = true;
     setIsLoadingChapters(true);
     getChapters(ver, book)
@@ -133,15 +142,17 @@ export function useBibleNavigation() {
 
   // Effect to set chapter if current one is invalid
   useEffect(() => {
+    if (isLoadingChapters) return; // Wait for chapters to load
     if (availableChapters.length > 0 && (!chap || !availableChapters.includes(chap))) {
       setChapter(availableChapters[0] || '1');
     }
-  }, [availableChapters, chap, setChapter]);
+  }, [availableChapters, chap, setChapter, isLoadingChapters]);
 
   // Effect to fetch chapter text
   useEffect(() => {
     if (!ver || !book || !chap) {
         setCurrentChapterText(null);
+        setIsLoadingText(false);
         return;
     };
     let isMounted = true;
