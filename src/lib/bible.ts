@@ -134,6 +134,11 @@ export async function getChapterText(
   for (const v in verses) {
     verses[v] = verses[v].replace(/\s+/g, ' ').trim();
   }
+
+  // If parsing resulted in no verses, treat it as no content
+  if (Object.keys(verses).length === 0) {
+    return { text: null, bookName: '', chapterNumber: '' };
+  }
   
   const reference = apiChapter.reference;
   const lastSpaceIndex = reference.lastIndexOf(' ');
