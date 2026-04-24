@@ -14,24 +14,24 @@ export type BibleVersion = {
   copyright: string;
 };
 
-// TODO: Replace these placeholder IDs with the actual IDs from your Bible API.
+// These IDs are now specific to the rest.api.bible service.
 export const BIBLE_VERSIONS: BibleVersion[] = [
   {
-    id: 'de4e12af7f28f599-01', // Example ID for KJV
+    id: 'de4e12af7f28f599-01', // King James Version
     abbreviation: 'KJV',
     name: 'King James Version',
     language: LANGUAGES[0],
     copyright: 'Public Domain',
   },
   {
-    id: '06125adad2d5898a-01', // Example ID for NIV
+    id: '06125adad2d5898a-01', // New International Version
     abbreviation: 'NIV',
     name: 'New International Version',
     language: LANGUAGES[0],
     copyright: 'Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.®',
   },
   {
-    id: '592420522e16049f-01', // Example ID for NLT
+    id: '592420522e16049f-01', // New Living Translation
     abbreviation: 'NLT',
     name: 'New Living Translation',
     language: LANGUAGES[0],

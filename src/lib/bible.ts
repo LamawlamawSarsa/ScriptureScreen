@@ -5,8 +5,8 @@ import {
   type Language,
 } from '@/lib/bible-versions';
 
-type BibleVerse = { [verse: string]: string };
-export type BibleData = { [book: string]: { [chapter: string]: BibleVerse } };
+type BibleVerseSet = { [verse: string]: string };
+export type BibleData = { [book: string]: { [chapter: string]: BibleVerseSet } };
 
 export type LanguageCode = 'en'; // Updated to be more specific
 export type VersionId = string;
@@ -15,7 +15,7 @@ export const BIBLE_LANGUAGES = LANGUAGES;
 
 // --- API Configuration ---
 const API_URL =
-  process.env.BIBLE_API_URL || 'https://api.scripture.api.bible/v1';
+  process.env.BIBLE_API_URL || 'https://rest.api.bible/v1';
 const API_KEY = process.env.BIBLE_API_KEY;
 
 // --- API Fetching Utility ---
@@ -33,7 +33,7 @@ async function fetchFromApi(path: string, params: Record<string, string> = {}) {
   console.log(`Fetching from API: ${path}`);
 
   const response = await fetch(url, {
-    headers: { 'api-key': API_KEY },
+    headers: { Authorization: `Bearer ${API_KEY}` },
     // Cache API responses for 24 hours
     next: { revalidate: 3600 * 24 },
   });
@@ -90,7 +90,7 @@ export async function getChapterText(
   versionId: VersionId,
   chapterId: string
 ): Promise<{
-  text: BibleVerse | null;
+  text: BibleVerseSet | null;
   bookName: string;
   chapterNumber: string;
 }> {
@@ -98,38 +98,26 @@ export async function getChapterText(
     `/bibles/${versionId}/chapters/${chapterId}`,
     {
       'content-type': 'json',
-      'include-verse-numbers': 'true',
     }
   );
 
   if (!apiChapter || !apiChapter.content) {
     return { text: null, bookName: '', chapterNumber: '' };
   }
+  
+  const verses: BibleVerseSet = {};
 
-  // This parsing logic is specific to the api.scripture.api.bible JSON response.
-  const verses: BibleVerse = {};
-
-  function parseContent(items: any[]) {
-    items.forEach((item: any) => {
-      if (item.type === 'tag' && item.name === 'verse' && item.attrs?.number) {
-        const verseNum = item.attrs.number;
-        const verseText = (item.items || [])
-          .map((textItem: any) => {
-            if (textItem.type === 'text') {
-              return textItem.text;
-            }
-            return '';
-          })
-          .join('');
-        verses[verseNum] = (verses[verseNum] || '') + verseText.trim() + ' ';
-      } else if (item.type === 'tag' && Array.isArray(item.items)) {
-        parseContent(item.items);
-      }
-    });
-  }
-
+  // This parsing logic is for the JSON response from rest.api.bible
   if (Array.isArray(apiChapter.content)) {
-    parseContent(apiChapter.content);
+    for (const paragraph of apiChapter.content) {
+      if (paragraph.type === 'paragraph' && Array.isArray(paragraph.content)) {
+        for (const item of paragraph.content) {
+          if (item.type === 'verse' && item.number && item.text) {
+            verses[item.number] = (verses[item.number] || '') + item.text.trim() + ' ';
+          }
+        }
+      }
+    }
   }
 
   // Clean up extra spaces
@@ -163,6 +151,7 @@ export async function getVerse(
     return null;
   }
 
+  // content from the API is an HTML string
   const text = apiVerse.content.replace(/<[^>]*>?/gm, '').trim();
 
   const reference = apiVerse.reference; // e.g., "Genesis 1:1" or "1 John 1:1"
@@ -207,7 +196,7 @@ export async function search(
         id: verse.id,
         book: verse.bookId,
         chapter: verse.chapterId,
-        verse: verse.verse, // The API returns 'verse' for the verse number
+        verse: verse.verseId.split('.').pop() || '',
         bookName: bookName,
         text: verse.text,
       }
