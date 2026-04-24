@@ -1,3 +1,8 @@
+import kjv from '@/data/bible/kjv.json';
+import web from '@/data/bible/web.json';
+import asv from '@/data/bible/asv.json';
+import tagalog from '@/data/bible/tagalog.json';
+import bisaya from '@/data/bible/bisaya.json';
 
 import {
   BIBLE_VERSIONS,
@@ -9,46 +14,18 @@ import {
 type BibleVerseSet = { [verse: string]: string };
 export type BibleData = { [book: string]: { [chapter:string]: BibleVerseSet } };
 
-export type LanguageCode = 'en'; // Updated to be more specific
-export type VersionId = string;
+export type LanguageCode = 'en' | 'tl' | 'ceb';
+export type Version = 'kjv' | 'web' | 'asv' | 'tagalog' | 'bisaya';
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
-// --- API Configuration ---
-const API_URL =
-  process.env.BIBLE_API_URL || 'https://rest.api.bible/v1';
-const API_KEY = process.env.BIBLE_API_KEY;
-
-// --- API Fetching Utility ---
-async function fetchFromApi(path: string, params: Record<string, string> = {}) {
-  if (!API_KEY) {
-    console.error('BIBLE_API_KEY is not set in .env file.');
-    throw new Error(
-      'BIBLE_API_KEY is not set. Please add it to your .env file.'
-    );
-  }
-
-  const queryString = new URLSearchParams(params).toString();
-  const url = `${API_URL}${path}${queryString ? `?${queryString}` : ''}`;
-
-  console.log(`Fetching from API: ${path}`);
-
-  const response = await fetch(url, {
-    headers: { 'api-key': API_KEY },
-    // Cache API responses for 24 hours
-    next: { revalidate: 3600 * 24 },
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('API Error:', errorBody);
-    throw new Error(
-      `Failed to fetch from Bible API: ${response.status} ${response.statusText}`
-    );
-  }
-  const jsonResponse = await response.json();
-  return jsonResponse.data;
-}
+const BIBLE_DATA: Record<Version, BibleData> = {
+  kjv: kjv as BibleData,
+  web: web as BibleData,
+  asv: asv as BibleData,
+  tagalog: tagalog as BibleData,
+  bisaya: bisaya as BibleData,
+};
 
 // --- Data Access Functions ---
 
@@ -60,160 +37,85 @@ export function getVersionsForLanguage(langCode: LanguageCode): BibleVersion[] {
   return BIBLE_VERSIONS.filter(v => v.language.code === langCode);
 }
 
-export async function getBooks(
-  versionId: VersionId
-): Promise<{ id: string; name: string }[]> {
-  const apiBooks = await fetchFromApi(`/bibles/${versionId}/books`);
-
-  if (!Array.isArray(apiBooks)) return [];
-  return apiBooks.map(book => ({
-    id: book.id,
-    name: book.name,
-  }));
+function getBibleData(version: Version): BibleData | undefined {
+  return BIBLE_DATA[version];
 }
 
-export async function getChapters(
-  versionId: VersionId,
-  bookId: string
-): Promise<{ id: string; name: string }[]> {
-  const apiChapters = await fetchFromApi(
-    `/bibles/${versionId}/books/${bookId}/chapters`
-  );
-
-  if (!Array.isArray(apiChapters)) return [];
-  return apiChapters.map(chapter => ({
-    id: chapter.id,
-    name: chapter.number,
-  }));
+export function getBooks(
+  version: Version
+): { id: string; name: string }[] {
+  const data = getBibleData(version);
+  if (!data) return [];
+  return Object.keys(data).map(bookName => ({ id: bookName, name: bookName }));
 }
 
-export async function getChapterText(
-  versionId: VersionId,
-  chapterId: string
-): Promise<{
-  text: BibleVerseSet | null;
-  bookName: string;
-  chapterNumber: string;
-}> {
-  const apiChapter = await fetchFromApi(
-    `/bibles/${versionId}/chapters/${chapterId}`,
-    {
-      'content-type': 'json',
-    }
-  );
-
-  if (!apiChapter || !apiChapter.content) {
-    return { text: null, bookName: '', chapterNumber: '' };
-  }
-  
-  const verses: BibleVerseSet = {};
-  
-  if (Array.isArray(apiChapter.content)) {
-    let currentVerse = '';
-    for (const paragraph of apiChapter.content) {
-      if (paragraph.type !== 'paragraph' || !Array.isArray(paragraph.content)) continue;
-
-      for (const item of paragraph.content) {
-        if (item.type === 'verse' && item.number) {
-          currentVerse = item.number;
-          if (!verses[currentVerse]) {
-            verses[currentVerse] = '';
-          }
-        }
-
-        if (item.text && currentVerse) {
-          // The API sometimes includes verse numbers in the text, so we remove them
-          const cleanedText = item.text.replace(/^\[\d+\]\s*/, '');
-          verses[currentVerse] += cleanedText;
-        }
-      }
-    }
-  }
-
-  // Clean up extra spaces
-  for (const v in verses) {
-    verses[v] = verses[v].replace(/\s+/g, ' ').trim();
-  }
-
-  // If parsing resulted in no verses, treat it as no content
-  if (Object.keys(verses).length === 0) {
-    return { text: null, bookName: '', chapterNumber: '' };
-  }
-  
-  const reference = apiChapter.reference;
-  const lastSpaceIndex = reference.lastIndexOf(' ');
-  const bookName = reference.substring(0, lastSpaceIndex);
-
-  return {
-    text: verses,
-    bookName: bookName,
-    chapterNumber: apiChapter.number,
-  };
+export function getChapters(
+  version: Version,
+  bookName: string
+): { id: string; name: string }[] {
+  const data = getBibleData(version);
+  if (!data || !data[bookName]) return [];
+  return Object.keys(data[bookName]).map(chapterNum => ({ id: chapterNum, name: chapterNum }));
 }
 
-export async function getVerse(
-  versionId: VersionId,
-  verseId: string
-): Promise<{
-  text: string;
-  bookName: string;
-  chapterNumber: string;
-  verseNumber: string;
-} | null> {
-  const apiVerse = await fetchFromApi(`/bibles/${versionId}/verses/${verseId}`);
-
-  if (!apiVerse || !apiVerse.content) {
+export function getChapterText(
+  version: Version,
+  bookName: string,
+  chapter: string
+): BibleVerseSet | null {
+  const data = getBibleData(version);
+  if (!data || !data[bookName] || !data[bookName][chapter]) {
     return null;
   }
+  return data[bookName][chapter];
+}
 
-  // content from the API is an HTML string
-  const text = apiVerse.content.replace(/<[^>]*>?/gm, '').trim();
-
-  const reference = apiVerse.reference; // e.g., "Genesis 1:1" or "1 John 1:1"
-  const lastSpaceIndex = reference.lastIndexOf(' ');
-  const bookName = reference.substring(0, lastSpaceIndex);
-  const chapterAndVerse = reference.substring(lastSpaceIndex + 1);
-  const [chapterNumber, verseNumber] = chapterAndVerse.split(':');
-
-  return {
-    text,
-    bookName,
-    chapterNumber,
-    verseNumber,
-  };
+export function getVerse(
+  version: Version,
+  bookName: string,
+  chapter: string,
+  verse: string
+): string | null {
+   const data = getBibleData(version);
+  if (!data || !data[bookName] || !data[bookName][chapter] || !data[bookName][chapter][verse]) {
+    return null;
+  }
+  return data[bookName][chapter][verse];
 }
 
 export type SearchResult = {
   id: string; // A unique ID for the search result
-  book: string; // Book ID
-  chapter: string; // Chapter ID
+  book: string; // Book name
+  chapter: string; // Chapter number
   verse: string; // Verse number
-  bookName: string; // Human-readable book name
   text: string;
 };
 
-export async function search(
-  versionId: VersionId,
+export function search(
+  version: Version,
   query: string
-): Promise<SearchResult[]> {
-  if (!query) return [];
+): SearchResult[] {
+  const data = getBibleData(version);
+  if (!data || !query) return [];
 
-  const response = await fetchFromApi(`/bibles/${versionId}/search`, { query });
+  const results: SearchResult[] = [];
+  const lowerCaseQuery = query.toLowerCase();
 
-  if (!response || !Array.isArray(response.verses)) return [];
-
-  return response.verses.map((verse: any) => {
-    const reference = verse.reference;
-    const lastSpaceIndex = reference.lastIndexOf(' ');
-    const bookName = reference.substring(0, lastSpaceIndex);
-    
-    return {
-        id: verse.id,
-        book: verse.bookId,
-        chapter: verse.chapterId,
-        verse: verse.verseId.split('.').pop() || '',
-        bookName: bookName,
-        text: verse.text,
+  for (const book in data) {
+    for (const chapter in data[book]) {
+      for (const verse in data[book][chapter]) {
+        const text = data[book][chapter][verse];
+        if (text.toLowerCase().includes(lowerCaseQuery)) {
+          results.push({
+            id: `${version}-${book}-${chapter}-${verse}`,
+            book: book,
+            chapter: chapter,
+            verse: verse,
+            text: text,
+          });
+        }
       }
-  });
+    }
+  }
+  return results;
 }

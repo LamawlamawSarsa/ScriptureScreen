@@ -1,17 +1,17 @@
 import { getChapterText, getVerse } from '@/lib/bible';
 import { cn } from '@/lib/utils';
-import type { LanguageCode, VersionId } from '@/lib/bible';
+import type { LanguageCode, Version } from '@/lib/bible';
 import { Suspense } from 'react';
 
 async function VerseDisplay({
   lang,
   ver,
-  book, // book ID
-  chap, // chapter ID
+  book, // book name
+  chap, // chapter number
   v, // verse number
 }: {
   lang: LanguageCode;
-  ver: VersionId;
+  ver: Version;
   book: string;
   chap: string;
   v?: string;
@@ -20,20 +20,19 @@ async function VerseDisplay({
   let verseText, bookName, chapterNumber, verseNumber;
 
   if (isSingleVerse) {
-    const verseId = `${chap}.${v}`;
-    const verseContent = await getVerse(ver, verseId);
+    const verseContent = getVerse(ver, book, chap, v);
     if (verseContent) {
-      verseText = verseContent.text;
-      bookName = verseContent.bookName;
-      chapterNumber = verseContent.chapterNumber;
-      verseNumber = verseContent.verseNumber;
+      verseText = verseContent;
+      bookName = book;
+      chapterNumber = chap;
+      verseNumber = v;
     }
   } else {
-    const chapterContent = await getChapterText(ver, chap);
+    const chapterContent = getChapterText(ver, book, chap);
     if (chapterContent) {
-      verseText = chapterContent.text;
-      bookName = chapterContent.bookName;
-      chapterNumber = chapterContent.chapterNumber;
+      verseText = chapterContent;
+      bookName = book;
+      chapterNumber = chap;
     }
   }
 
@@ -42,7 +41,7 @@ async function VerseDisplay({
       <div className="text-center text-2xl text-white/80">
         <p>Content not found.</p>
         <p className="text-lg">
-          Please check your selection and API configuration.
+          Please check your selection.
         </p>
       </div>
     );
@@ -77,11 +76,10 @@ export default function PresentationPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // These are now IDs from the API
   const lang = (searchParams.lang as LanguageCode) || 'en';
-  const ver = (searchParams.ver as VersionId) || 'de4e12af7f28f599-01'; // Default KJV
-  const book = (searchParams.book as string) || 'GEN'; // Default Genesis ID
-  const chap = (searchParams.chap as string) || 'GEN.1'; // Default Genesis 1 ID
+  const ver = (searchParams.ver as Version) || 'kjv';
+  const book = (searchParams.book as string) || 'Genesis';
+  const chap = (searchParams.chap as string) || '1';
   const v = searchParams.v as string | undefined;
 
   return (

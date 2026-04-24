@@ -57,15 +57,6 @@ export function BibleReader() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const bookName = useMemo(
-    () => availableBooks.find(b => b.id === book)?.name,
-    [availableBooks, book]
-  );
-  const chapName = useMemo(
-    () => availableChapters.find(c => c.id === chap)?.name,
-    [availableChapters, chap]
-  );
-
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.length > 2) {
@@ -104,8 +95,8 @@ export function BibleReader() {
     const params = createQueryString({
       lang,
       ver,
-      book, // book ID
-      chap, // chapter ID
+      book,
+      chap,
       v: selectedVerse || undefined,
     });
     window.open(`/presentation?${params}`, '_blank', 'noopener,noreferrer');
@@ -228,7 +219,7 @@ export function BibleReader() {
                           className="w-full text-left p-2 rounded-md hover:bg-accent"
                         >
                           <p className="font-semibold text-primary">
-                            {result.bookName} {result.chapter}:{result.verse}
+                            {result.book} {result.chapter}:{result.verse}
                           </p>
                           <p
                             className="text-sm text-muted-foreground truncate"
@@ -269,7 +260,7 @@ export function BibleReader() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-center font-headline text-3xl font-bold text-primary sm:text-4xl">
-              {isLoading || !bookName || !chapName ? <Skeleton className="h-8 w-48" /> : `${bookName} ${chapName}`}
+              {isLoading || !book || !chap ? <Skeleton className="h-8 w-48" /> : `${book} ${chap}`}
             </h2>
             <Button
               variant="outline"

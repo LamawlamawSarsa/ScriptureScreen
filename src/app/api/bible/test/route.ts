@@ -1,4 +1,14 @@
 import { NextResponse } from 'next/server';
+import { getVerse } from '@/lib/bible';
+
+// Expected book and chapter counts for validation
+const BOOK_CHAPTER_COUNTS: Record<string, number> = {
+  Genesis: 50,
+  Psalms: 150,
+  Revelation: 22,
+};
+const TOTAL_BOOKS = 66;
+const MIN_KJV_VERSES = 31100;
 
 export async function GET() {
   const response = {
