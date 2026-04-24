@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -55,6 +56,15 @@ export function BibleReader() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  const bookName = useMemo(
+    () => availableBooks.find(b => b.id === book)?.name,
+    [availableBooks, book]
+  );
+  const chapName = useMemo(
+    () => availableChapters.find(c => c.id === chap)?.name,
+    [availableChapters, chap]
+  );
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.length > 2) {
@@ -82,10 +92,10 @@ export function BibleReader() {
   };
 
   const handleChapterChange = (offset: number) => {
-    const currentIndex = availableChapters.indexOf(chap);
+    const currentIndex = availableChapters.findIndex(c => c.id === chap);
     const newIndex = currentIndex + offset;
     if (newIndex >= 0 && newIndex < availableChapters.length) {
-      setChapter(availableChapters[newIndex]);
+      setChapter(availableChapters[newIndex].id);
       setSelectedVerse(null);
     }
   };
@@ -94,8 +104,8 @@ export function BibleReader() {
     const params = createQueryString({
       lang,
       ver,
-      book,
-      chap,
+      book, // book ID
+      chap, // chapter ID
       v: selectedVerse || undefined,
     });
     window.open(`/presentation?${params}`, '_blank', 'noopener,noreferrer');
@@ -164,8 +174,8 @@ export function BibleReader() {
             <SelectContent>
               <ScrollArea className="h-72">
                 {availableBooks.map(b => (
-                  <SelectItem key={b} value={b}>
-                    {b}
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
                   </SelectItem>
                 ))}
               </ScrollArea>
@@ -179,8 +189,8 @@ export function BibleReader() {
             <SelectContent>
               <ScrollArea className="h-72">
                 {availableChapters.map(c => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
                   </SelectItem>
                 ))}
               </ScrollArea>
@@ -214,7 +224,7 @@ export function BibleReader() {
                         className="w-full text-left p-2 rounded-md hover:bg-accent"
                       >
                         <p className="font-semibold text-primary">
-                          {result.book} {result.chapter}:{result.verse}
+                          {result.bookName} {result.chapter}:{result.verse}
                         </p>
                         <p
                           className="text-sm text-muted-foreground truncate"
@@ -249,12 +259,12 @@ export function BibleReader() {
               variant="outline"
               size="icon"
               onClick={() => handleChapterChange(-1)}
-              disabled={isLoading || availableChapters.indexOf(chap) === 0}
+              disabled={isLoading || availableChapters.findIndex(c => c.id === chap) === 0}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-center font-headline text-3xl font-bold text-primary sm:text-4xl">
-              {isLoading ? <Skeleton className="h-8 w-48" /> : `${book} ${chap}`}
+              {isLoading || !bookName || !chapName ? <Skeleton className="h-8 w-48" /> : `${bookName} ${chapName}`}
             </h2>
             <Button
               variant="outline"
@@ -262,7 +272,7 @@ export function BibleReader() {
               onClick={() => handleChapterChange(1)}
               disabled={
                 isLoading ||
-                availableChapters.indexOf(chap) ===
+                availableChapters.findIndex(c => c.id === chap) ===
                   availableChapters.length - 1
               }
             >

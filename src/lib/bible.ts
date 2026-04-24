@@ -6,165 +6,158 @@ import {
 } from '@/lib/bible-versions';
 
 type BibleVerse = { [verse: string]: string };
-type BibleChapter = { [chapter: string]: BibleVerse };
-type BibleBook = { [book: string]: BibleChapter };
-export type BibleData = BibleBook;
+export type BibleData = { [book: string]: { [chapter: string]: BibleVerse } };
 
-export type LanguageCode = 'en' | 'tl' | 'ceb';
+export type LanguageCode = 'en'; // Updated to be more specific
 export type VersionId = string;
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
-// Cache for loaded bible data
-const bibleCache = new Map<VersionId, BibleData>();
+// --- API Configuration ---
+// TODO: Add your Bible API URL and Key to the .env file
+const API_URL =
+  process.env.BIBLE_API_URL || 'https://api.scripture.api.bible/v1';
+const API_KEY = process.env.BIBLE_API_KEY;
 
-// --- Transformation Functions ---
-
-function transformNestedArray(sourceData: any[]): BibleData {
-  const data: BibleData = {};
-  for (const book of sourceData) {
-    const bookName = book.name;
-    if (!bookName || !book.chapters) continue;
-    data[bookName] = {};
-    book.chapters.forEach((chapterVerses: string[], chapterIndex: number) => {
-      const chapterNum = chapterIndex + 1;
-      data[bookName][chapterNum] = {};
-      chapterVerses.forEach((verseText: string, verseIndex: number) => {
-        const verseNum = verseIndex + 1;
-        data[bookName][chapterNum][verseNum] = verseText;
-      });
-    });
+// --- API Fetching Utility ---
+async function fetchFromApi(path: string, params: Record<string, string> = {}) {
+  if (!API_KEY) {
+    // In a real app, you might want to handle this more gracefully.
+    // For now, we'll throw an error to make it clear what's missing.
+    throw new Error(
+      'BIBLE_API_KEY is not set. Please add it to your .env file.'
+    );
   }
-  return data;
+
+  const queryString = new URLSearchParams(params).toString();
+  const url = `${API_URL}${path}?${queryString}`;
+
+  console.log(`Fetching from API: ${url}`);
+
+  const response = await fetch(url, {
+    headers: { 'api-key': API_KEY },
+    // Cache API responses for 24 hours
+    next: { revalidate: 3600 * 24 },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('API Error:', errorBody);
+    throw new Error(
+      `Failed to fetch from Bible API: ${response.status} ${response.statusText}`
+    );
+  }
+  const jsonResponse = await response.json();
+  return jsonResponse.data;
 }
 
-function transformFlatObjectArray(sourceData: any[]): BibleData {
-  const data: BibleData = {};
-  for (const item of sourceData) {
-    const bookName = item.book_name || item.book;
-    const chapterNum = item.chapter;
-    const verseNum = item.verse;
-    const text = item.text;
-
-    if (!bookName || !chapterNum || !verseNum || text === undefined) continue;
-
-    if (!data[bookName]) {
-      data[bookName] = {};
-    }
-    if (!data[bookName][chapterNum]) {
-      data[bookName][chapterNum] = {};
-    }
-    data[bookName][chapterNum][verseNum] = text;
-  }
-  return data;
-}
-
-// --- Data Fetching ---
-
-async function getVersionData(versionId: VersionId): Promise<BibleData | null> {
-  if (bibleCache.has(versionId)) {
-    return bibleCache.get(versionId)!;
-  }
-
-  const versionInfo = BIBLE_VERSIONS.find(v => v.id === versionId);
-  if (!versionInfo || versionInfo.type !== 'online-json') {
-    console.error(
-      `Version ${versionId} not found or is not of type 'online-json'.`
-    );
-    return null;
-  }
-
-  try {
-    console.log(
-      `Fetching Bible data for ${versionId} from ${versionInfo.source}`
-    );
-    const response = await fetch(versionInfo.source, {
-      next: { revalidate: 3600 * 24 }, // Revalidate once a day
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Bible data for ${versionId}: ${response.statusText}`
-      );
-    }
-
-    const sourceData = await response.json();
-    let data: BibleData;
-
-    if (versionInfo.format === 'nested-array') {
-      data = transformNestedArray(sourceData);
-    } else if (versionInfo.format === 'flat-object-array') {
-      data = transformFlatObjectArray(sourceData);
-    } else {
-      throw new Error(
-        `Unknown format for version ${versionId}: ${versionInfo.format}`
-      );
-    }
-
-    bibleCache.set(versionId, data);
-    console.log(
-      `Successfully loaded and transformed Bible data for ${versionId}.`
-    );
-    return data;
-  } catch (error) {
-    console.error(
-      `Failed to load or process Bible data for ${versionId}:`,
-      error
-    );
-    return null;
-  }
-}
+// --- Data Access Functions ---
 
 export function getAvailableLanguages(): Language[] {
-  const supportedLanguageCodes = new Set(
-    BIBLE_VERSIONS.map(v => v.language.code)
-  );
-  return LANGUAGES.filter(lang => supportedLanguageCodes.has(lang.code));
+  return LANGUAGES;
 }
 
 export function getVersionsForLanguage(langCode: LanguageCode): BibleVersion[] {
   return BIBLE_VERSIONS.filter(v => v.language.code === langCode);
 }
 
-export async function getBooks(versionId: VersionId): Promise<string[]> {
-  const data = await getVersionData(versionId);
-  return data ? Object.keys(data) : [];
+export async function getBooks(
+  versionId: VersionId
+): Promise<{ id: string; name: string }[]> {
+  // TODO: Adjust the path and response parsing based on your API's documentation.
+  const apiBooks = await fetchFromApi(`/bibles/${versionId}/books`);
+
+  // Assuming the API returns an array of objects like: { id: "GEN", name: "Genesis", ... }
+  if (!Array.isArray(apiBooks)) return [];
+  return apiBooks.map(book => ({
+    id: book.id,
+    name: book.name,
+  }));
 }
 
 export async function getChapters(
   versionId: VersionId,
-  book: string
-): Promise<string[]> {
-  const data = await getVersionData(versionId);
-  // Sort chapters numerically
-  return data && data[book]
-    ? Object.keys(data[book]).sort((a, b) => parseInt(a) - parseInt(b))
-    : [];
+  bookId: string
+): Promise<{ id: string; name: string }[]> {
+  // TODO: Adjust the path and response parsing based on your API's documentation.
+  const apiChapters = await fetchFromApi(
+    `/bibles/${versionId}/books/${bookId}/chapters`
+  );
+
+  // Assuming the API returns an array of objects like: { id: "GEN.1", number: "1", ... }
+  if (!Array.isArray(apiChapters)) return [];
+  return apiChapters.map(chapter => ({
+    id: chapter.id,
+    name: chapter.number,
+  }));
 }
 
 export async function getChapterText(
   versionId: VersionId,
-  book: string,
-  chapter: string
-): Promise<BibleVerse | null> {
-  const data = await getVersionData(versionId);
-  return data?.[book]?.[chapter] || null;
+  chapterId: string
+): Promise<{
+  text: BibleVerse | null;
+  bookName: string;
+  chapterNumber: string;
+}> {
+  // TODO: Adjust the path and response parsing based on your API's documentation.
+  // This example assumes content-type=json returns a structured format.
+  // Many APIs return HTML-like strings that need more complex parsing.
+  const apiChapter = await fetchFromApi(`/bibles/${versionId}/chapters/${chapterId}`, {
+    'content-type': 'json',
+  });
+
+  if (!apiChapter || !apiChapter.content) {
+    return { text: null, bookName: '', chapterNumber: '' };
+  }
+
+  // This parsing logic is HIGHLY DEPENDENT on the API response structure.
+  // You WILL likely need to change this.
+  const verses: BibleVerse = {};
+  apiChapter.content.forEach((item: any) => {
+    if (item.name === 'para' && Array.isArray(item.items)) {
+      item.items.forEach((paraItem: any) => {
+        if (
+          paraItem.name === 'verse' &&
+          paraItem.items &&
+          paraItem.attrs?.number
+        ) {
+          const verseNum = paraItem.attrs.number;
+          const verseText = paraItem.items
+            .map((textItem: any) => textItem.text)
+            .join('');
+          verses[verseNum] = (verses[verseNum] || '') + verseText;
+        }
+      });
+    }
+  });
+
+  const bookName =
+    BIBLE_VERSIONS.find(v => v.id === versionId)?.name || 'Unknown';
+
+  return {
+    text: verses,
+    bookName: bookName,
+    chapterNumber: apiChapter.number,
+  };
 }
 
 export async function getVerse(
   versionId: VersionId,
-  book: string,
-  chapter: string,
-  verse: string
+  verseId: string
 ): Promise<string | null> {
-  const data = await getVersionData(versionId);
-  return data?.[book]?.[chapter]?.[verse] || null;
+  // TODO: Implement this based on your API. This is a placeholder.
+  // Many APIs fetch by chapter, so you might reuse getChapterText.
+  console.warn('getVerse is not fully implemented for API usage yet.');
+  return 'Verse fetching from API not implemented.';
 }
 
 export type SearchResult = {
-  book: string;
-  chapter: string;
-  verse: string;
+  id: string; // A unique ID for the search result
+  book: string; // Book ID
+  chapter: string; // Chapter ID
+  verse: string; // Verse number
+  bookName: string; // Human-readable book name
   text: string;
 };
 
@@ -174,114 +167,18 @@ export async function search(
 ): Promise<SearchResult[]> {
   if (!query) return [];
 
-  const data = await getVersionData(versionId);
-  if (!data) return [];
+  // TODO: Adjust path and response parsing. This assumes a specific search API structure.
+  const response = await fetchFromApi(`/bibles/${versionId}/search`, { query });
 
-  const results: SearchResult[] = [];
-  const lowerCaseQuery = query.toLowerCase();
+  if (!response || !Array.isArray(response.verses)) return [];
 
-  for (const book of Object.keys(data)) {
-    for (const chapter of Object.keys(data[book])) {
-      for (const verse of Object.keys(data[book][chapter])) {
-        const text = data[book][chapter][verse];
-        if (text.toLowerCase().includes(lowerCaseQuery)) {
-          results.push({ book, chapter, verse, text });
-        }
-      }
-    }
-  }
-
-  return results;
-}
-
-export async function validateVersion(versionId: VersionId) {
-  console.log(`Starting validation for ${versionId}...`);
-  const data = await getVersionData(versionId);
-  if (!data) {
-    return {
-      versionId,
-      error: 'Could not load data for this version.',
-      checks: {},
-    };
-  }
-  console.log(`Data for ${versionId} loaded, performing checks.`);
-
-  const bookCount = Object.keys(data).length;
-  const genesisChapterCount = data['Genesis']
-    ? Object.keys(data['Genesis']).length
-    : 0;
-  const psalmsChapterCount = data['Psalms']
-    ? Object.keys(data['Psalms']).length
-    : 0;
-  const revelationChapterCount = data['Revelation']
-    ? Object.keys(data['Revelation']).length
-    : 0;
-  const hasGenesis1_1 = !!data?.['Genesis']?.['1']?.['1'];
-  const hasRevelation22_21 = !!data?.['Revelation']?.['22']?.['21'];
-
-  let totalVerseCount = 0;
-  for (const book in data) {
-    for (const chapter in data[book]) {
-      totalVerseCount += Object.keys(data[book][chapter]).length;
-    }
-  }
-
-  const checks = {
-    bookCount: {
-      description: 'Total number of books should be 66.',
-      expected: 66,
-      actual: bookCount,
-      pass: bookCount === 66,
-    },
-    genesisChapters: {
-      description: 'Genesis should have 50 chapters.',
-      expected: 50,
-      actual: genesisChapterCount,
-      pass: genesisChapterCount === 50,
-    },
-    psalmsChapters: {
-      description: 'Psalms should have 150 chapters.',
-      expected: 150,
-      actual: psalmsChapterCount,
-      pass: psalmsChapterCount === 150,
-    },
-    revelationChapters: {
-      description: 'Revelation should have 22 chapters.',
-      expected: 22,
-      actual: revelationChapterCount,
-      pass: revelationChapterCount === 22,
-    },
-    hasFirstVerse: {
-      description: 'Must contain Genesis 1:1.',
-      expected: true,
-      actual: hasGenesis1_1,
-      pass: hasGenesis1_1,
-    },
-    hasLastVerse: {
-      description: 'Must contain Revelation 22:21.',
-      expected: true,
-      actual: hasRevelation22_21,
-      pass: hasRevelation22_21,
-    },
-    totalVerseCount: {
-      description: 'Total verse count must be over 30,000 for KJV.',
-      expected: '~31,102',
-      actual: totalVerseCount,
-      pass: totalVerseCount > 30000,
-    },
-  };
-  console.log(
-    `Validation checks for ${versionId} complete. Overall pass: ${Object.values(
-      checks
-    ).every(check => check.pass)}`
-  );
-
-  const overallPass = Object.values(checks).every(check => check.pass);
-
-  return {
-    versionId,
-    overallPass,
-    totalVerseCount,
-    checks,
-  };
+  // This mapping is an example. You'll need to adapt it.
+  return response.verses.map((verse: any) => ({
+    id: verse.id,
+    book: verse.bookId,
+    chapter: verse.chapterId,
+    verse: verse.verseId, // Assuming verseId is the number
+    bookName: verse.bookId, // Placeholder, might need another lookup
+    text: verse.text,
+  }));
 }

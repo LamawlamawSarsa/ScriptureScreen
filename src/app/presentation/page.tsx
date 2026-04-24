@@ -6,8 +6,8 @@ import { Suspense } from 'react';
 async function VerseDisplay({
   lang,
   ver,
-  book,
-  chap,
+  book, // book ID
+  chap, // chapter ID
   v,
 }: {
   lang: LanguageCode;
@@ -16,39 +16,52 @@ async function VerseDisplay({
   chap: string;
   v?: string;
 }) {
-  const verseText = v
-    ? await getVerse(ver, book, chap, v)
-    : await getChapterText(ver, book, chap);
+  const isSingleVerse = !!v;
+  let verseText, bookName, chapterNumber;
+
+  if (isSingleVerse) {
+    // TODO: getVerse needs to be implemented to fetch single verses efficiently
+    const verseContent = await getVerse(ver, v);
+    verseText = verseContent;
+    // For now, bookName and chapterNumber will be incorrect for single verse display
+    bookName = '...';
+    chapterNumber = '...';
+  } else {
+    const chapterContent = await getChapterText(ver, chap);
+    verseText = chapterContent.text;
+    bookName = chapterContent.bookName;
+    chapterNumber = chapterContent.chapterNumber;
+  }
 
   if (!verseText) {
     return (
       <div className="text-center text-2xl text-white/80">
-        <p>Verse not found.</p>
-        <p className="text-lg">Please check your selection and try again.</p>
+        <p>Content not found.</p>
+        <p className="text-lg">
+          Please check your selection and API configuration.
+        </p>
       </div>
     );
   }
-
-  const isSingleVerse = typeof verseText === 'string';
 
   return (
     <div className="w-full text-center">
       <h1
         className={cn(
           'font-headline font-bold text-white drop-shadow-md',
-          isSingleVerse
+          typeof verseText === 'string'
             ? 'text-5xl md:text-7xl lg:text-8xl'
             : 'text-2xl md:text-3xl lg:text-4xl'
         )}
       >
-        {isSingleVerse
+        {typeof verseText === 'string'
           ? verseText
           : Object.entries(verseText)
               .map(([num, text]) => `(${num}) ${text}`)
               .join(' ')}
       </h1>
       <p className="mt-8 text-2xl md:text-4xl lg:text-5xl font-semibold text-white/70 drop-shadow">
-        {book} {chap}
+        {bookName} {chapterNumber}
         {v ? `:${v}` : ''}
       </p>
     </div>
@@ -60,17 +73,20 @@ export default function PresentationPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // These are now IDs from the API
   const lang = (searchParams.lang as LanguageCode) || 'en';
-  const ver = (searchParams.ver as VersionId) || 'KJV';
-  const book = (searchParams.book as string) || 'John';
-  const chap = (searchParams.chap as string) || '3';
+  const ver = (searchParams.ver as VersionId) || 'de4e12af7f28f599-01'; // Default KJV
+  const book = (searchParams.book as string) || 'GEN'; // Default Genesis ID
+  const chap = (searchParams.chap as string) || 'GEN.1'; // Default Genesis 1 ID
   const v = searchParams.v as string | undefined;
 
   return (
     <main className="flex h-dvh w-full items-center justify-center bg-primary p-8">
-      <Suspense fallback={<div className="text-white text-4xl">Loading...</div>}>
+      <Suspense
+        fallback={<div className="text-white text-4xl">Loading...</div>}
+      >
         <VerseDisplay lang={lang} ver={ver} book={book} chap={chap} v={v} />
-      </Suspense>
+      </Suspapse>
     </main>
   );
 }

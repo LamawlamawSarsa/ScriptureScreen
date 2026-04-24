@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -10,30 +11,32 @@ import {
   getAvailableLanguages,
   type LanguageCode,
   type VersionId,
-  type BibleData,
 } from '@/lib/bible';
+
+type BibleVerseSet = { [verse: string]: string };
+type Book = { id: string; name: string };
+type Chapter = { id: string; name: string };
 
 export function useBibleNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Synchronous States
+  // Synchronous States from URL
   const availableLanguages = useMemo(() => getAvailableLanguages(), []);
   const lang =
     (searchParams.get('lang') as LanguageCode) || availableLanguages[0].code;
   const availableVersions = useMemo(() => getVersionsForLanguage(lang), [lang]);
   const ver =
     (searchParams.get('ver') as VersionId) || availableVersions[0]?.id;
-  const book = searchParams.get('book');
-  const chap = searchParams.get('chap');
+  const book = searchParams.get('book'); // Now a book ID
+  const chap = searchParams.get('chap'); // Now a chapter ID
 
   // Asynchronous States
-  const [availableBooks, setAvailableBooks] = useState<string[]>([]);
-  const [availableChapters, setAvailableChapters] = useState<string[]>([]);
-  const [currentChapterText, setCurrentChapterText] = useState<
-    BibleData[string][string] | null
-  >(null);
+  const [availableBooks, setAvailableBooks] = useState<Book[]>([]);
+  const [availableChapters, setAvailableChapters] = useState<Chapter[]>([]);
+  const [currentChapterText, setCurrentChapterText] =
+    useState<BibleVerseSet | null>(null);
 
   // Loading States
   const [isLoadingBooks, setIsLoadingBooks] = useState(true);
@@ -59,39 +62,24 @@ export function useBibleNavigation() {
     const newVersions = getVersionsForLanguage(newLang);
     const newVersionId = newVersions[0]?.id;
     if (!newVersionId) return;
-    const params = new URLSearchParams();
-    params.set('lang', newLang);
-    params.set('ver', newVersionId);
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?lang=${newLang}&ver=${newVersionId}`);
   }, [router, pathname]);
 
   const setVersion = useCallback((newVer: VersionId) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('ver', newVer);
-    params.delete('book');
-    params.delete('chap');
-    router.push(`${pathname}?${params.toString()}`);
-  }, [router, pathname]);
+    router.push(`${pathname}?lang=${lang}&ver=${newVer}`);
+  }, [router, pathname, lang]);
 
-  const setBook = useCallback((newBook: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('book', newBook);
-    params.delete('chap');
-    router.push(`${pathname}?${params.toString()}`);
-  }, [router, pathname]);
+  const setBook = useCallback((newBookId: string) => {
+    router.push(`${pathname}?${createQueryString({ book: newBookId, chap: undefined })}`);
+  }, [router, pathname, createQueryString]);
 
-  const setChapter = useCallback((newChap: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('chap', newChap);
-    router.push(`${pathname}?${params.toString()}`);
-  }, [router, pathname]);
+  const setChapter = useCallback((newChapId: string) => {
+    router.push(`${pathname}?${createQueryString({ chap: newChapId })}`);
+  }, [router, pathname, createQueryString]);
 
   const goTo = useCallback((location: { book: string; chapter: string }) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('book', location.book);
-    params.set('chap', location.chapter);
-    router.push(`${pathname}?${params.toString()}`);
-  }, [router, pathname]);
+    router.push(`${pathname}?${createQueryString({ book: location.book, chap: location.chapter })}`);
+  }, [router, pathname, createQueryString]);
 
 
   // Effect to fetch books when version changes
@@ -113,11 +101,12 @@ export function useBibleNavigation() {
     return () => { isMounted = false; };
   }, [ver]);
 
-  // Effect to set book if current one is invalid
+  // Effect to set book if current one is invalid or not set
   useEffect(() => {
-    if (isLoadingBooks) return; // Wait for books to load
-    if (availableBooks.length > 0 && (!book || !availableBooks.includes(book))) {
-      setBook(availableBooks[0]);
+    if (isLoadingBooks || !availableBooks.length) return;
+    const bookIdExists = availableBooks.some(b => b.id === book);
+    if (!book || !bookIdExists) {
+      setBook(availableBooks[0].id);
     }
   }, [availableBooks, book, setBook, isLoadingBooks]);
 
@@ -140,32 +129,33 @@ export function useBibleNavigation() {
     return () => { isMounted = false; };
   }, [ver, book]);
 
-  // Effect to set chapter if current one is invalid
+  // Effect to set chapter if current one is invalid or not set
   useEffect(() => {
-    if (isLoadingChapters) return; // Wait for chapters to load
-    if (availableChapters.length > 0 && (!chap || !availableChapters.includes(chap))) {
-      setChapter(availableChapters[0] || '1');
+    if (isLoadingChapters || !availableChapters.length) return;
+    const chapIdExists = availableChapters.some(c => c.id === chap);
+    if (!chap || !chapIdExists) {
+      setChapter(availableChapters[0].id);
     }
   }, [availableChapters, chap, setChapter, isLoadingChapters]);
 
   // Effect to fetch chapter text
   useEffect(() => {
-    if (!ver || !book || !chap) {
+    if (!ver || !chap) {
         setCurrentChapterText(null);
         setIsLoadingText(false);
         return;
     };
     let isMounted = true;
     setIsLoadingText(true);
-    getChapterText(ver, book, chap)
-      .then(text => {
-        if (isMounted) setCurrentChapterText(text);
+    getChapterText(ver, chap)
+      .then(result => {
+        if (isMounted) setCurrentChapterText(result.text);
       })
       .finally(() => {
         if (isMounted) setIsLoadingText(false);
       });
     return () => { isMounted = false; };
-  }, [ver, book, chap]);
+  }, [ver, chap]);
 
   return {
     lang,
