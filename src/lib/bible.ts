@@ -1,8 +1,5 @@
 import kjv from '@/data/bible/kjv.json';
 import web from '@/data/bible/web.json';
-import asv from '@/data/bible/asv.json';
-import tagalog from '@/data/bible/tagalog.json';
-import bisaya from '@/data/bible/bisaya.json';
 
 import {
   BIBLE_VERSIONS,
@@ -14,17 +11,14 @@ import {
 type BibleVerseSet = { [verse: string]: string };
 export type BibleData = { [book: string]: { [chapter:string]: BibleVerseSet } };
 
-export type LanguageCode = 'en' | 'tl' | 'ceb';
-export type Version = 'kjv' | 'web' | 'asv' | 'tagalog' | 'bisaya';
+export type LanguageCode = 'en';
+export type Version = 'kjv' | 'web';
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
 const BIBLE_DATA: Record<Version, BibleData> = {
   kjv: kjv as BibleData,
   web: web as BibleData,
-  asv: asv as BibleData,
-  tagalog: tagalog as BibleData,
-  bisaya: bisaya as BibleData,
 };
 
 // --- Data Access Functions ---
