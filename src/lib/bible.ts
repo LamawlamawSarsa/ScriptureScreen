@@ -14,7 +14,6 @@ export type VersionId = string;
 export const BIBLE_LANGUAGES = LANGUAGES;
 
 // --- API Configuration ---
-// TODO: Add your Bible API URL and Key to the .env file
 const API_URL =
   process.env.BIBLE_API_URL || 'https://api.scripture.api.bible/v1';
 const API_KEY = process.env.BIBLE_API_KEY;
@@ -22,17 +21,16 @@ const API_KEY = process.env.BIBLE_API_KEY;
 // --- API Fetching Utility ---
 async function fetchFromApi(path: string, params: Record<string, string> = {}) {
   if (!API_KEY) {
-    // In a real app, you might want to handle this more gracefully.
-    // For now, we'll throw an error to make it clear what's missing.
+    console.error('BIBLE_API_KEY is not set in .env file.');
     throw new Error(
       'BIBLE_API_KEY is not set. Please add it to your .env file.'
     );
   }
 
   const queryString = new URLSearchParams(params).toString();
-  const url = `${API_URL}${path}?${queryString}`;
+  const url = `${API_URL}${path}${queryString ? `?${queryString}` : ''}`;
 
-  console.log(`Fetching from API: ${url}`);
+  console.log(`Fetching from API: ${path}`);
 
   const response = await fetch(url, {
     headers: { 'api-key': API_KEY },
@@ -64,10 +62,8 @@ export function getVersionsForLanguage(langCode: LanguageCode): BibleVersion[] {
 export async function getBooks(
   versionId: VersionId
 ): Promise<{ id: string; name: string }[]> {
-  // TODO: Adjust the path and response parsing based on your API's documentation.
   const apiBooks = await fetchFromApi(`/bibles/${versionId}/books`);
 
-  // Assuming the API returns an array of objects like: { id: "GEN", name: "Genesis", ... }
   if (!Array.isArray(apiBooks)) return [];
   return apiBooks.map(book => ({
     id: book.id,
@@ -79,12 +75,10 @@ export async function getChapters(
   versionId: VersionId,
   bookId: string
 ): Promise<{ id: string; name: string }[]> {
-  // TODO: Adjust the path and response parsing based on your API's documentation.
   const apiChapters = await fetchFromApi(
     `/bibles/${versionId}/books/${bookId}/chapters`
   );
 
-  // Assuming the API returns an array of objects like: { id: "GEN.1", number: "1", ... }
   if (!Array.isArray(apiChapters)) return [];
   return apiChapters.map(chapter => ({
     id: chapter.id,
@@ -100,40 +94,52 @@ export async function getChapterText(
   bookName: string;
   chapterNumber: string;
 }> {
-  // TODO: Adjust the path and response parsing based on your API's documentation.
-  // This example assumes content-type=json returns a structured format.
-  // Many APIs return HTML-like strings that need more complex parsing.
-  const apiChapter = await fetchFromApi(`/bibles/${versionId}/chapters/${chapterId}`, {
-    'content-type': 'json',
-  });
+  const apiChapter = await fetchFromApi(
+    `/bibles/${versionId}/chapters/${chapterId}`,
+    {
+      'content-type': 'json',
+      'include-verse-numbers': 'true',
+    }
+  );
 
   if (!apiChapter || !apiChapter.content) {
     return { text: null, bookName: '', chapterNumber: '' };
   }
 
-  // This parsing logic is HIGHLY DEPENDENT on the API response structure.
-  // You WILL likely need to change this.
+  // This parsing logic is specific to the api.scripture.api.bible JSON response.
   const verses: BibleVerse = {};
-  apiChapter.content.forEach((item: any) => {
-    if (item.name === 'para' && Array.isArray(item.items)) {
-      item.items.forEach((paraItem: any) => {
-        if (
-          paraItem.name === 'verse' &&
-          paraItem.items &&
-          paraItem.attrs?.number
-        ) {
-          const verseNum = paraItem.attrs.number;
-          const verseText = paraItem.items
-            .map((textItem: any) => textItem.text)
-            .join('');
-          verses[verseNum] = (verses[verseNum] || '') + verseText;
-        }
-      });
-    }
-  });
 
-  const bookName =
-    BIBLE_VERSIONS.find(v => v.id === versionId)?.name || 'Unknown';
+  function parseContent(items: any[]) {
+    items.forEach((item: any) => {
+      if (item.type === 'tag' && item.name === 'verse' && item.attrs?.number) {
+        const verseNum = item.attrs.number;
+        const verseText = (item.items || [])
+          .map((textItem: any) => {
+            if (textItem.type === 'text') {
+              return textItem.text;
+            }
+            return '';
+          })
+          .join('');
+        verses[verseNum] = (verses[verseNum] || '') + verseText.trim() + ' ';
+      } else if (item.type === 'tag' && Array.isArray(item.items)) {
+        parseContent(item.items);
+      }
+    });
+  }
+
+  if (Array.isArray(apiChapter.content)) {
+    parseContent(apiChapter.content);
+  }
+
+  // Clean up extra spaces
+  for (const v in verses) {
+    verses[v] = verses[v].trim();
+  }
+  
+  const reference = apiChapter.reference;
+  const lastSpaceIndex = reference.lastIndexOf(' ');
+  const bookName = reference.substring(0, lastSpaceIndex);
 
   return {
     text: verses,
@@ -145,11 +151,32 @@ export async function getChapterText(
 export async function getVerse(
   versionId: VersionId,
   verseId: string
-): Promise<string | null> {
-  // TODO: Implement this based on your API. This is a placeholder.
-  // Many APIs fetch by chapter, so you might reuse getChapterText.
-  console.warn('getVerse is not fully implemented for API usage yet.');
-  return 'Verse fetching from API not implemented.';
+): Promise<{
+  text: string;
+  bookName: string;
+  chapterNumber: string;
+  verseNumber: string;
+} | null> {
+  const apiVerse = await fetchFromApi(`/bibles/${versionId}/verses/${verseId}`);
+
+  if (!apiVerse || !apiVerse.content) {
+    return null;
+  }
+
+  const text = apiVerse.content.replace(/<[^>]*>?/gm, '').trim();
+
+  const reference = apiVerse.reference; // e.g., "Genesis 1:1" or "1 John 1:1"
+  const lastSpaceIndex = reference.lastIndexOf(' ');
+  const bookName = reference.substring(0, lastSpaceIndex);
+  const chapterAndVerse = reference.substring(lastSpaceIndex + 1);
+  const [chapterNumber, verseNumber] = chapterAndVerse.split(':');
+
+  return {
+    text,
+    bookName,
+    chapterNumber,
+    verseNumber,
+  };
 }
 
 export type SearchResult = {
@@ -167,18 +194,22 @@ export async function search(
 ): Promise<SearchResult[]> {
   if (!query) return [];
 
-  // TODO: Adjust path and response parsing. This assumes a specific search API structure.
   const response = await fetchFromApi(`/bibles/${versionId}/search`, { query });
 
   if (!response || !Array.isArray(response.verses)) return [];
 
-  // This mapping is an example. You'll need to adapt it.
-  return response.verses.map((verse: any) => ({
-    id: verse.id,
-    book: verse.bookId,
-    chapter: verse.chapterId,
-    verse: verse.verseId, // Assuming verseId is the number
-    bookName: verse.bookId, // Placeholder, might need another lookup
-    text: verse.text,
-  }));
+  return response.verses.map((verse: any) => {
+    const reference = verse.reference;
+    const lastSpaceIndex = reference.lastIndexOf(' ');
+    const bookName = reference.substring(0, lastSpaceIndex);
+    
+    return {
+        id: verse.id,
+        book: verse.bookId,
+        chapter: verse.chapterId,
+        verse: verse.verse, // The API returns 'verse' for the verse number
+        bookName: bookName,
+        text: verse.text,
+      }
+  });
 }

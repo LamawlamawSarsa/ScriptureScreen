@@ -8,7 +8,7 @@ async function VerseDisplay({
   ver,
   book, // book ID
   chap, // chapter ID
-  v,
+  v, // verse number
 }: {
   lang: LanguageCode;
   ver: VersionId;
@@ -17,15 +17,17 @@ async function VerseDisplay({
   v?: string;
 }) {
   const isSingleVerse = !!v;
-  let verseText, bookName, chapterNumber;
+  let verseText, bookName, chapterNumber, verseNumber;
 
   if (isSingleVerse) {
-    // TODO: getVerse needs to be implemented to fetch single verses efficiently
-    const verseContent = await getVerse(ver, v);
-    verseText = verseContent;
-    // For now, bookName and chapterNumber will be incorrect for single verse display
-    bookName = '...';
-    chapterNumber = '...';
+    const verseId = `${chap}.${v}`;
+    const verseContent = await getVerse(ver, verseId);
+    if (verseContent) {
+      verseText = verseContent.text;
+      bookName = verseContent.bookName;
+      chapterNumber = verseContent.chapterNumber;
+      verseNumber = verseContent.verseNumber;
+    }
   } else {
     const chapterContent = await getChapterText(ver, chap);
     verseText = chapterContent.text;
@@ -62,7 +64,7 @@ async function VerseDisplay({
       </h1>
       <p className="mt-8 text-2xl md:text-4xl lg:text-5xl font-semibold text-white/70 drop-shadow">
         {bookName} {chapterNumber}
-        {v ? `:${v}` : ''}
+        {verseNumber ? `:${verseNumber}` : ''}
       </p>
     </div>
   );
@@ -86,7 +88,7 @@ export default function PresentationPage({
         fallback={<div className="text-white text-4xl">Loading...</div>}
       >
         <VerseDisplay lang={lang} ver={ver} book={book} chap={chap} v={v} />
-      </Suspapse>
+      </Suspense>
     </main>
   );
 }
