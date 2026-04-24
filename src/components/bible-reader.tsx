@@ -71,10 +71,9 @@ export function BibleReader() {
     if (query.length > 2) {
       const results = await search(ver, query);
       setSearchResults(results);
-      setIsSearchOpen(true);
+      if (!isSearchOpen) setIsSearchOpen(true);
     } else {
       setSearchResults([]);
-      setIsSearchOpen(false);
     }
   };
 
@@ -133,7 +132,7 @@ export function BibleReader() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:flex lg:items-center lg:gap-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-5 md:items-center lg:flex lg:gap-4">
           <Select
             value={lang}
             onValueChange={setLanguage as (value: string) => void}
@@ -198,58 +197,63 @@ export function BibleReader() {
             </SelectContent>
           </Select>
 
-          <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-            <PopoverTrigger asChild>
-              <div className="relative lg:flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search keyword..."
-                  className="pl-9"
-                  value={searchQuery}
-                  onChange={e => handleSearch(e.target.value)}
-                />
-              </div>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-[--radix-popover-trigger-width] p-0"
-              align="start"
-            >
-              <ScrollArea className="max-h-80">
-                {searchResults.length > 0 ? (
-                  <div className="p-2">
-                    {searchResults.map((result, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleResultClick(result)}
-                        className="w-full text-left p-2 rounded-md hover:bg-accent"
-                      >
-                        <p className="font-semibold text-primary">
-                          {result.bookName} {result.chapter}:{result.verse}
-                        </p>
-                        <p
-                          className="text-sm text-muted-foreground truncate"
-                          dangerouslySetInnerHTML={{
-                            __html: result.text.replace(
-                              new RegExp(searchQuery, 'gi'),
-                              match =>
-                                `<strong class="text-accent-foreground bg-accent/50">${match}</strong>`
-                            ),
-                          }}
-                        ></p>
-                      </button>
-                    ))}
+          <div className="col-span-2 md:col-span-1 lg:ml-auto">
+            <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="w-full md:w-10">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search keyword..."
+                      className="pl-9"
+                      value={searchQuery}
+                      onChange={e => handleSearch(e.target.value)}
+                      autoFocus
+                    />
                   </div>
-                ) : (
-                  <p className="p-4 text-center text-sm text-muted-foreground">
-                    {searchQuery.length > 2
-                      ? 'No results found.'
-                      : 'Type to search.'}
-                  </p>
-                )}
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
+                </div>
+                <ScrollArea className="max-h-80">
+                  {searchResults.length > 0 ? (
+                    <div className="p-2 pt-0">
+                      {searchResults.map((result, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleResultClick(result)}
+                          className="w-full text-left p-2 rounded-md hover:bg-accent"
+                        >
+                          <p className="font-semibold text-primary">
+                            {result.bookName} {result.chapter}:{result.verse}
+                          </p>
+                          <p
+                            className="text-sm text-muted-foreground truncate"
+                            dangerouslySetInnerHTML={{
+                              __html: result.text.replace(
+                                new RegExp(searchQuery, 'gi'),
+                                match =>
+                                  `<strong class="text-accent-foreground bg-accent/50">${match}</strong>`
+                              ),
+                            }}
+                          ></p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-4 text-center text-sm text-muted-foreground">
+                      {searchQuery.length > 2
+                        ? 'No results found.'
+                        : 'Type to search.'}
+                    </p>
+                  )}
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </header>
 
