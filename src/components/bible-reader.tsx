@@ -22,7 +22,8 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { ContextualVerseFinder } from '@/components/contextual-verse-finder';
 import { Input } from '@/components/ui/input';
-import { search, type SearchResult } from '@/lib/bible';
+import { search } from '@/app/actions';
+import type { SearchResult } from '@/lib/bible';
 import {
   Popover,
   PopoverContent,

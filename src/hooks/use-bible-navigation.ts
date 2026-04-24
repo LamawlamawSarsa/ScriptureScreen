@@ -7,6 +7,8 @@ import {
   getBooks,
   getChapters,
   getChapterText,
+} from '@/app/actions';
+import {
   getVersionsForLanguage,
   getAvailableLanguages,
   type LanguageCode,
