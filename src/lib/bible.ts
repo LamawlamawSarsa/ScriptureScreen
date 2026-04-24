@@ -1,3 +1,4 @@
+
 import {
   BIBLE_VERSIONS,
   LANGUAGES,
@@ -33,7 +34,7 @@ async function fetchFromApi(path: string, params: Record<string, string> = {}) {
   console.log(`Fetching from API: ${path}`);
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${API_KEY}` },
+    headers: { 'api-key': API_KEY },
     // Cache API responses for 24 hours
     next: { revalidate: 3600 * 24 },
   });
@@ -111,14 +112,30 @@ export async function getChapterText(
   if (Array.isArray(apiChapter.content)) {
     for (const paragraph of apiChapter.content) {
       if (paragraph.type === 'paragraph' && Array.isArray(paragraph.content)) {
+        let currentVerse = '';
+        let verseText = '';
+
         for (const item of paragraph.content) {
-          if (item.type === 'verse' && item.number && item.text) {
-            verses[item.number] = (verses[item.number] || '') + item.text.trim() + ' ';
+          if (item.type === 'verse' && item.number) {
+            // Save the previous verse if there was one
+            if (currentVerse && verseText) {
+              verses[currentVerse] = (verses[currentVerse] || '') + verseText.trim() + ' ';
+            }
+            // Start a new verse
+            currentVerse = item.number;
+            verseText = item.text ? item.text.trim() + ' ' : '';
+          } else if (item.type === 'text' && currentVerse) {
+             verseText += item.text.trim() + ' ';
           }
+        }
+         // Save the last verse in the paragraph
+        if (currentVerse && verseText) {
+            verses[currentVerse] = (verses[currentVerse] || '') + verseText.trim() + ' ';
         }
       }
     }
   }
+
 
   // Clean up extra spaces
   for (const v in verses) {
