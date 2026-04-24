@@ -7,7 +7,7 @@ import {
 } from '@/lib/bible-versions';
 
 type BibleVerseSet = { [verse: string]: string };
-export type BibleData = { [book: string]: { [chapter: string]: BibleVerseSet } };
+export type BibleData = { [book: string]: { [chapter:string]: BibleVerseSet } };
 
 export type LanguageCode = 'en'; // Updated to be more specific
 export type VersionId = string;
@@ -107,39 +107,32 @@ export async function getChapterText(
   }
   
   const verses: BibleVerseSet = {};
-
-  // This parsing logic is for the JSON response from rest.api.bible
+  
   if (Array.isArray(apiChapter.content)) {
+    let currentVerse = '';
     for (const paragraph of apiChapter.content) {
-      if (paragraph.type === 'paragraph' && Array.isArray(paragraph.content)) {
-        let currentVerse = '';
-        let verseText = '';
+      if (paragraph.type !== 'paragraph' || !Array.isArray(paragraph.content)) continue;
 
-        for (const item of paragraph.content) {
-          if (item.type === 'verse' && item.number) {
-            // Save the previous verse if there was one
-            if (currentVerse && verseText) {
-              verses[currentVerse] = (verses[currentVerse] || '') + verseText.trim() + ' ';
-            }
-            // Start a new verse
-            currentVerse = item.number;
-            verseText = item.text ? item.text.trim() + ' ' : '';
-          } else if (item.type === 'text' && currentVerse) {
-             verseText += item.text.trim() + ' ';
+      for (const item of paragraph.content) {
+        if (item.type === 'verse' && item.number) {
+          currentVerse = item.number;
+          if (!verses[currentVerse]) {
+            verses[currentVerse] = '';
           }
         }
-         // Save the last verse in the paragraph
-        if (currentVerse && verseText) {
-            verses[currentVerse] = (verses[currentVerse] || '') + verseText.trim() + ' ';
+
+        if (item.text && currentVerse) {
+          // The API sometimes includes verse numbers in the text, so we remove them
+          const cleanedText = item.text.replace(/^\[\d+\]\s*/, '');
+          verses[currentVerse] += cleanedText;
         }
       }
     }
   }
 
-
   // Clean up extra spaces
   for (const v in verses) {
-    verses[v] = verses[v].trim();
+    verses[v] = verses[v].replace(/\s+/g, ' ').trim();
   }
   
   const reference = apiChapter.reference;

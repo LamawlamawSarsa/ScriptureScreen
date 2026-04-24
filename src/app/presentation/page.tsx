@@ -30,12 +30,14 @@ async function VerseDisplay({
     }
   } else {
     const chapterContent = await getChapterText(ver, chap);
-    verseText = chapterContent.text;
-    bookName = chapterContent.bookName;
-    chapterNumber = chapterContent.chapterNumber;
+    if (chapterContent) {
+      verseText = chapterContent.text;
+      bookName = chapterContent.bookName;
+      chapterNumber = chapterContent.chapterNumber;
+    }
   }
 
-  if (!verseText) {
+  if (!verseText || (typeof verseText !== 'string' && Object.keys(verseText).length === 0)) {
     return (
       <div className="text-center text-2xl text-white/80">
         <p>Content not found.</p>
