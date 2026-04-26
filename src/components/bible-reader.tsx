@@ -1,13 +1,16 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Book,
   ChevronLeft,
   ChevronRight,
   MonitorPlay,
   Search,
+  Settings,
+  Palette,
+  Plus,
 } from 'lucide-react';
 
 import { useBibleNavigation } from '@/hooks/use-bible-navigation';
@@ -31,6 +34,8 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from './ui/scroll-area';
 import { Skeleton } from './ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 
 export function BibleReader() {
   const {
@@ -52,10 +57,73 @@ export function BibleReader() {
     isLoading,
   } = useBibleNavigation();
 
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
+  const [selectedVerses, setSelectedVerses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [presentationWindow, setPresentationWindow] = useState<Window | null>(null);
+  const [fontSize, setFontSize] = useState(72);
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [bgColor, setBgColor] = useState('#000000');
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [verseRangeStart, setVerseRangeStart] = useState<number>(1);
+  const [verseRangeEnd, setVerseRangeEnd] = useState<number>(10);
+  const [showVerseRange, setShowVerseRange] = useState(false);
+
+  // Load presentation settings from localStorage
+  useEffect(() => {
+    const savedFontSize = localStorage.getItem('presentation-fontSize');
+    const savedTextColor = localStorage.getItem('presentation-textColor');
+    const savedBgColor = localStorage.getItem('presentation-bgColor');
+    const savedTextAlign = localStorage.getItem('presentation-textAlign');
+
+    if (savedFontSize) setFontSize(parseInt(savedFontSize));
+    if (savedTextColor) setTextColor(savedTextColor);
+    if (savedBgColor) setBgColor(savedBgColor);
+    if (savedTextAlign) setTextAlign(savedTextAlign as 'left' | 'center' | 'right');
+  }, []);
+
+  // Get verses for current range
+  const versesInRange = useMemo(() => {
+    if (!showVerseRange || !currentChapterText) return selectedVerses;
+    
+    const verseNumbers = Object.keys(currentChapterText)
+      .map(v => parseInt(v))
+      .sort((a, b) => a - b);
+    
+    return verseNumbers
+      .filter(v => v >= verseRangeStart && v <= verseRangeEnd)
+      .map(v => v.toString());
+  }, [showVerseRange, verseRangeStart, verseRangeEnd, currentChapterText, selectedVerses]);
+
+  // Send presentation updates via postMessage
+  const sendPresentationUpdate = () => {
+    if (!presentationWindow || presentationWindow.closed) return;
+    const versesToSend = showVerseRange ? versesInRange : selectedVerses;
+    presentationWindow.postMessage(
+      {
+        type: 'UPDATE_VERSES',
+        payload: {
+          lang,
+          ver,
+          book,
+          chap,
+          verses: versesToSend,
+          verseRangeStart: showVerseRange ? verseRangeStart : undefined,
+          verseRangeEnd: showVerseRange ? verseRangeEnd : undefined,
+          fontSize,
+          textColor,
+          bgColor,
+          textAlign,
+        },
+      },
+      '*'
+    );
+  };
+
+  useEffect(() => {
+    sendPresentationUpdate();
+  }, [selectedVerses, versesInRange, book, chap, lang, ver, fontSize, textColor, bgColor, presentationWindow, showVerseRange, verseRangeStart, verseRangeEnd, textAlign]);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -78,7 +146,7 @@ export function BibleReader() {
         behavior: 'smooth',
         block: 'center',
       });
-      setSelectedVerse(result.verse);
+      setSelectedVerses([result.verse]);
     }, 100);
   };
 
@@ -87,27 +155,86 @@ export function BibleReader() {
     const newIndex = currentIndex + offset;
     if (newIndex >= 0 && newIndex < availableChapters.length) {
       setChapter(availableChapters[newIndex].id);
-      setSelectedVerse(null);
+      setSelectedVerses([]);
     }
   };
 
+  const saveSettings = () => {
+    localStorage.setItem('presentation-fontSize', fontSize.toString());
+    localStorage.setItem('presentation-textColor', textColor);
+    localStorage.setItem('presentation-bgColor', bgColor);
+    localStorage.setItem('presentation-textAlign', textAlign);
+  };
+
+  // Navigate to next verse range
+  const goToNextRange = () => {
+    const rangeSize = verseRangeEnd - verseRangeStart + 1;
+    setVerseRangeStart(verseRangeEnd + 1);
+    setVerseRangeEnd(verseRangeEnd + rangeSize);
+  };
+
+  // Navigate to previous verse range
+  const goToPrevRange = () => {
+    if (verseRangeStart <= 1) return;
+    const rangeSize = verseRangeEnd - verseRangeStart + 1;
+    setVerseRangeStart(Math.max(1, verseRangeStart - rangeSize));
+    setVerseRangeEnd(verseRangeStart - 1);
+  };
+
   const openPresentation = () => {
+    const rangeSuffix = showVerseRange ? `&vstart=${verseRangeStart}&vend=${verseRangeEnd}` : '';
+    const versesToSend = showVerseRange ? versesInRange : selectedVerses;
     const params = createQueryString({
       lang,
       ver,
       book,
       chap,
-      v: selectedVerse || undefined,
+      v: versesToSend.length ? versesToSend.join(',') : undefined,
     });
-    window.open(`/presentation?${params}`, '_blank', 'noopener,noreferrer');
+    const newWindow = window.open(`/presentation?${params}${rangeSuffix}`, '_blank');
+    if (newWindow) {
+      setPresentationWindow(newWindow);
+      setTimeout(() => {
+        if (!newWindow.closed) {
+          newWindow.postMessage(
+            {
+              type: 'UPDATE_VERSES',
+              payload: {
+                lang,
+                ver,
+                book,
+                chap,
+                verses: versesToSend,
+                verseRangeStart: showVerseRange ? verseRangeStart : undefined,
+                verseRangeEnd: showVerseRange ? verseRangeEnd : undefined,
+                fontSize,
+                textColor,
+                bgColor,
+              },
+            },
+            '*'
+          );
+        }
+      }, 300);
+    }
   };
 
   const sortedChapterText = useMemo(() => {
     if (!currentChapterText) return [];
-    return Object.entries(currentChapterText).sort(([a], [b]) => {
+    let verses = Object.entries(currentChapterText).sort(([a], [b]) => {
       return parseInt(a) - parseInt(b);
     });
-  }, [currentChapterText]);
+    
+    // Filter to verse range if in range mode
+    if (showVerseRange) {
+      verses = verses.filter(([verseNum]) => {
+        const num = parseInt(verseNum);
+        return num >= verseRangeStart && num <= verseRangeEnd;
+      });
+    }
+    
+    return verses;
+  }, [currentChapterText, showVerseRange, verseRangeStart, verseRangeEnd]);
 
   return (
     <div className="flex h-full flex-col">
@@ -116,6 +243,75 @@ export function BibleReader() {
           <Logo />
           <div className="flex items-center gap-2">
             <ContextualVerseFinder />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Font Size: {fontSize}px</Label>
+                    <Slider
+                      value={[fontSize]}
+                      onValueChange={(value) => setFontSize(value[0])}
+                      min={24}
+                      max={120}
+                      step={4}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Text Color</Label>
+                    <Select value={textColor} onValueChange={setTextColor}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="#ffffff">White</SelectItem>
+                        <SelectItem value="#000000">Black</SelectItem>
+                        <SelectItem value="#ffd700">Gold</SelectItem>
+                        <SelectItem value="#ff6b6b">Coral</SelectItem>
+                        <SelectItem value="#4ecdc4">Teal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Background Color</Label>
+                    <Select value={bgColor} onValueChange={setBgColor}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="#000000">Black</SelectItem>
+                        <SelectItem value="#ffffff">White</SelectItem>
+                        <SelectItem value="#1a1a1a">Dark Gray</SelectItem>
+                        <SelectItem value="#2d3748">Blue Gray</SelectItem>
+                        <SelectItem value="#2f1b14">Brown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Text Alignment</Label>
+                    <Select value={textAlign} onValueChange={(value: 'left' | 'center' | 'right') => setTextAlign(value)}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">Left</SelectItem>
+                        <SelectItem value="center">Center</SelectItem>
+                        <SelectItem value="right">Right</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={saveSettings} className="w-full">
+                    <Palette className="mr-2 h-4 w-4" />
+                    Save Settings
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button onClick={openPresentation} disabled={!currentChapterText}>
               <MonitorPlay className="mr-2 h-4 w-4" />
               Present
@@ -246,6 +442,71 @@ export function BibleReader() {
             </Popover>
           </div>
         </div>
+
+        {/* Verse Range Navigation */}
+        {showVerseRange && currentChapterText && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToPrevRange}
+              disabled={verseRangeStart <= 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Prev
+            </Button>
+            <span className="text-sm font-medium px-3 py-2 rounded-md bg-secondary">
+              Verses {verseRangeStart} - {verseRangeEnd}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToNextRange}
+              disabled={verseRangeEnd >= Math.max(...Object.keys(currentChapterText).map(v => parseInt(v)))}
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* Verse Range Toggle */}
+        <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+          <Button
+            variant={showVerseRange ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setShowVerseRange(!showVerseRange);
+              if (!showVerseRange) {
+                setSelectedVerses([]);
+              }
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {showVerseRange ? 'Selecting Range' : 'Select Range'}
+          </Button>
+          {showVerseRange && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="1"
+                value={verseRangeStart}
+                onChange={(e) => setVerseRangeStart(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-16 h-8 text-center text-sm"
+                placeholder="Start"
+              />
+              <span className="text-sm font-medium">-</span>
+              <Input
+                type="number"
+                min="1"
+                value={verseRangeEnd}
+                onChange={(e) => setVerseRangeEnd(Math.max(verseRangeStart, parseInt(e.target.value) || 10))}
+                className="w-16 h-8 text-center text-sm"
+                placeholder="End"
+              />
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
@@ -290,13 +551,15 @@ export function BibleReader() {
                 <p
                   key={verseNum}
                   id={`verse-${verseNum}`}
-                  onClick={() =>
-                    setSelectedVerse(
-                      verseNum === selectedVerse ? null : verseNum
-                    )
-                  }
+                  onClick={() => {
+                    setSelectedVerses(prev =>
+                      prev.includes(verseNum)
+                        ? prev.filter(v => v !== verseNum)
+                        : [...prev, verseNum]
+                    );
+                  }}
                   className={`cursor-pointer rounded-md p-2 transition-colors ${
-                    selectedVerse === verseNum
+                    selectedVerses.includes(verseNum)
                       ? 'bg-accent/20 text-primary'
                       : 'hover:bg-secondary'
                   }`}

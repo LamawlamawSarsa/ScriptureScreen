@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/form';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useBibleNavigation } from '@/hooks/use-bible-navigation';
 import { findContextualVerse } from '@/app/actions';
 
 const FormSchema = z.object({
@@ -52,6 +53,8 @@ export function ContextualVerseFinder() {
   const [result, setResult] = useState<AIResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const { goTo } = useBibleNavigation();
+
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -74,6 +77,18 @@ export function ContextualVerseFinder() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerseClick = (verse: AIResult['verses'][0]) => {
+    goTo({ book: verse.book, chapter: verse.chapter.toString() });
+    setIsOpen(false);
+    // Scroll to verse after navigation
+    setTimeout(() => {
+      document.getElementById(`verse-${verse.verse}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100);
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -147,7 +162,11 @@ export function ContextualVerseFinder() {
                 </h3>
                 <div className="space-y-4">
                   {result.verses.map((v, i) => (
-                    <div key={i} className="rounded-md border p-4">
+                    <div
+                      key={i}
+                      onClick={() => handleVerseClick(v)}
+                      className="rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                    >
                       <p className="font-bold text-primary">
                         {v.book} {v.chapter}:{v.verse}
                       </p>

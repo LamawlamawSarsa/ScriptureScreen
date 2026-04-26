@@ -65,21 +65,21 @@ export function useBibleNavigation() {
     const newVersions = getVersionsForLanguage(newLang);
     const newVer = newVersions[0]?.id;
     if (!newVer) return;
-    const params = createQueryString({ lang: newLang, ver: newVer, book: null, chap: null });
+    const params = createQueryString({ lang: newLang, ver: newVer, book: undefined, chap: undefined });
     startTransition(() => {
       router.push(`${pathname}?${params}`);
     });
   };
 
   const setVersion = (newVer: Version) => {
-    const params = createQueryString({ ver: newVer, book: null, chap: null });
+    const params = createQueryString({ ver: newVer, book: undefined, chap: undefined });
      startTransition(() => {
       router.push(`${pathname}?${params}`);
     });
   };
 
   const setBook = (newBook: string) => {
-    const params = createQueryString({ book: newBook, chap: null });
+    const params = createQueryString({ book: newBook, chap: undefined });
      startTransition(() => {
       router.push(`${pathname}?${params}`);
     });
@@ -112,7 +112,7 @@ export function useBibleNavigation() {
         if (!book || !currentBookIsValid) {
           const newBook = books[0]?.id;
           if (newBook) {
-            const params = createQueryString({ book: newBook, chap: null });
+          const params = createQueryString({ book: newBook, chap: undefined });
             router.replace(`${pathname}?${params}`);
           }
         }
