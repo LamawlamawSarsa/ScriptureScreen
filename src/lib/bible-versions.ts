@@ -32,4 +32,11 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
     language: LANGUAGES[0],
     copyright: 'Public Domain',
   },
+  {
+    id: 'niv',
+    abbreviation: 'NIV',
+    name: 'New International Version',
+    language: LANGUAGES[0],
+    copyright: '© 1973, 1978, 1984, 2011 by Biblica, Inc.™',
+  },
 ];

@@ -1,5 +1,6 @@
 import kjv from '@/data/bible/kjv.json';
 import web from '@/data/bible/web.json';
+import niv from '@/data/bible/niv.json';
 
 import {
   BIBLE_VERSIONS,
@@ -12,13 +13,14 @@ type BibleVerseSet = { [verse: string]: string };
 export type BibleData = { [book: string]: { [chapter:string]: BibleVerseSet } };
 
 export type LanguageCode = 'en';
-export type Version = 'kjv' | 'web';
+export type Version = 'kjv' | 'web' | 'niv';
 
 export const BIBLE_LANGUAGES = LANGUAGES;
 
 const BIBLE_DATA: Record<Version, BibleData> = {
   kjv: kjv as BibleData,
   web: web as BibleData,
+  niv: niv as BibleData,
 };
 
 // --- Data Access Functions ---

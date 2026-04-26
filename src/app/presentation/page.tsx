@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { getChapterText, getVerse } from '@/lib/bible';
 import { cn } from '@/lib/utils';
 import type { LanguageCode, Version } from '@/lib/bible';
+
+type TextAlignment = 'left' | 'center' | 'right';
 
 function VerseDisplay({
   lang,
@@ -28,7 +31,7 @@ function VerseDisplay({
   fontSize: number;
   textColor: string;
   bgColor: string;
-  textAlign: 'left' | 'center' | 'right';
+  textAlign: TextAlignment;
 }) {
   const [verseText, setVerseText] = useState<string | { [key: string]: string } | null>(null);
   const [bookName, setBookName] = useState(book);
@@ -106,7 +109,7 @@ function VerseDisplay({
         style={{
           color: textColor,
           fontSize: typeof verseText === 'string' ? `${displayFontSize}px` : undefined,
-          textAlign: textAlign,
+          textAlign: textAlign as CSSProperties['textAlign'],
         }}
       >
         {typeof verseText === 'string'
@@ -124,7 +127,7 @@ function VerseDisplay({
         )}
         style={{ 
           color: textColor + 'b3', // semi-transparent
-          textAlign: textAlign,
+          textAlign: textAlign as CSSProperties['textAlign'],
         }}
       >
         {bookName} {chapterNumber}
@@ -145,7 +148,7 @@ export default function PresentationPage() {
   const [fontSize, setFontSize] = useState(72);
   const [textColor, setTextColor] = useState('#ffffff');
   const [bgColor, setBgColor] = useState('#000000');
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [textAlign, setTextAlign] = useState<TextAlignment>('center');
 
   // Listen for postMessage updates from the main reader
   useEffect(() => {
