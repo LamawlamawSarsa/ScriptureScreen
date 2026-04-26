@@ -43,3 +43,8 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# large data files
+src/data/bible/*.json
+studio.zip
+*.zip
